@@ -3,6 +3,7 @@ import {createInterface} from 'node:readline';
 import {Readable} from 'node:stream';
 import {parseMonthly} from '../src/dataset.js';
 import {DATASET} from '../src/search.js';
+process.on('uncaughtException',error=>{console.log(`::error title=Historical import failed::${String(error.stack||error).replaceAll('%','%25').replaceAll('\n','%0A').replaceAll('\r','%0D')}`);process.exit(1)});
 const repo='open-law-data-thailand/soc-ratchakitcha';
 const currentYear=new Date().getUTCFullYear();
 async function get(url){
@@ -42,7 +43,7 @@ const entries=await pool(files,async file=>{
  let cached;try{cached=JSON.parse(await readFile(`.cache/month-import/${cacheKey}.json`,'utf8'))}catch{}
  let result=cached;let ocrStatus=cached?.ocrStatus||'not-imported',ocrError=cached?.ocrError||null;
  if(!result){
-  result=parseMonthly(await get(source).then(r=>r.text()));
+  try{const text=await get(source).then(r=>r.text());result=file.size===0?{rows:[],scanned:0}:parseMonthly(text)}catch(e){throw Error(`${month}: ${e.message}`)}
   if(ocrFile){
    try{
     const response=await get(`${DATASET}/resolve/${revision}/${ocrFile.path}`);
