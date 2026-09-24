@@ -8,3 +8,8 @@ test('date bounds are inclusive and sorting works',()=>{assert.deepEqual(filterR
 test('OCR-only search cannot match titles',()=>{assert.equal(filterRows(rows,{...base,q:'แต่งตั้ง',scope:'text'}).length,0);assert.equal(filterRows(rows,{...base,q:'สมชาย',scope:'text'}).length,1)});
 test('AND OR exact and exclusion',()=>{assert.equal(filterRows(rows,{...base,q:'สมชาย โปร่งใส'}).length,1);assert.equal(filterRows(rows,{...base,q:'สมชาย ตรวจสอบ',match:'any'}).length,2);assert.equal(filterRows(rows,{...base,q:'สมชาย โปร่งใส',match:'exact'}).length,0);assert.equal(filterRows(rows,{...base,q:'โปร่งใส',exclude:'ตรวจสอบ'}).length,1)});
 test('combine group, agency, OCR and subtype',()=>{assert.deepEqual(filterRows(rows,{...base,group:'appointments',agency:'รัฐบาล',ocr:true,sub:'ข้าราชการพลเรือน'}).map(r=>r.id),[1])});
+test('Prime Minister office issuer does not make civil service appointment political',()=>{
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง แต่งตั้งข้าราชการพลเรือนสามัญ').sub,'ข้าราชการพลเรือน');
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง แต่งตั้งข้าราชการการเมือง').sub,'ข้าราชการการเมือง');
+ assert.equal(classify('ประกาศ แต่งตั้งรัฐมนตรี').sub,'ข้าราชการการเมือง');
+});
