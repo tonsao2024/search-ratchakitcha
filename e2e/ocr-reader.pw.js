@@ -15,15 +15,15 @@ for(const width of [390,1280])test(`OCR expansion, font controls, highlights and
  const dialog=page.getByRole('dialog'),reader=page.getByRole('region',{name:'ข้อความ OCR',exact:true});
  await expect(page.getByLabel('ค้นหาในข้อความ OCR')).toHaveValue('หน้าที่');
  await expect(reader.locator('mark')).toHaveCount(3);
- await expect(dialog.getByRole('status')).toHaveText('1 / 3 จุด');
+ await expect(dialog.getByRole('status',{name:'ผลการค้นหาใน OCR'})).toHaveText('1 / 3 จุด');
  await expect(reader.locator('[aria-current="true"]')).toHaveAttribute('data-match','0');
  await expect.poll(()=>reader.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
  await page.getByRole('button',{name:'คำที่พบถัดไป'}).click();
- await expect(dialog.getByRole('status')).toHaveText('2 / 3 จุด');
+ await expect(dialog.getByRole('status',{name:'ผลการค้นหาใน OCR'})).toHaveText('2 / 3 จุด');
  await page.getByLabel('ค้นหาในข้อความ OCR').press('Enter');
- await expect(dialog.getByRole('status')).toHaveText('3 / 3 จุด');
+ await expect(dialog.getByRole('status',{name:'ผลการค้นหาใน OCR'})).toHaveText('3 / 3 จุด');
  await page.getByLabel('ค้นหาในข้อความ OCR').press('Shift+Enter');
- await expect(dialog.getByRole('status')).toHaveText('2 / 3 จุด');
+ await expect(dialog.getByRole('status',{name:'ผลการค้นหาใน OCR'})).toHaveText('2 / 3 จุด');
  const before=await reader.boundingBox();
  await page.getByRole('button',{name:'ขยายพื้นที่อ่าน',exact:true}).click();
  await expect(dialog).toHaveClass(/modal-reader-expanded/);
@@ -37,7 +37,7 @@ for(const width of [390,1280])test(`OCR expansion, font controls, highlights and
  await expect(page.getByRole('button',{name:'เพิ่มขนาดตัวอักษร OCR'})).toBeDisabled();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.getByLabel('ค้นหาในข้อความ OCR').fill('ไม่พบคำนี้');
- await expect(dialog.getByRole('status')).toHaveText('ไม่พบคำใน OCR');
+ await expect(dialog.getByRole('status',{name:'ผลการค้นหาใน OCR'})).toHaveText('ไม่พบคำใน OCR');
  await expect(reader.locator('mark')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'คำที่พบถัดไป'})).toBeDisabled();
  expect(await page.evaluate(()=>window.injected)).toBeUndefined();
