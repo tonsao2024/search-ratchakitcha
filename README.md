@@ -48,3 +48,32 @@ Metadata ไม่มีเนื้อหา PDF จึงไม่เติม
 ปรับรูปแบบ field เพื่อแสดงผลและจำแนกหมวดโดยแอป ควรตรวจสอบ PDF ราชกิจจานุเบกษาต้นฉบับก่อนอ้างอิงทางกฎหมาย
 
 Theme และรายการบันทึกเก็บใน localStorage ของ browser ไม่ใช่บัญชีข้ามอุปกรณ์
+
+## GitHub Pages: real data deployment
+
+The Pages build uses **static JSON generated from the actual Hugging Face dataset**, not the five-record emergency snapshot or Express endpoints. `npm run sync:data`:
+
+1. Resolves a dataset revision and lists all metadata months in the current year (`DATA_YEAR` overrides the year).
+2. Downloads each complete monthly metadata file and filters appointments / NACC notices.
+3. Streams the matching monthly `ocr/openlawdata-ocr` file and joins valid OCR text by document ID / PDF filename. Missing OCR is reported separately; no text is fabricated.
+4. Writes `public/data/YYYY-MM.json` and a manifest recording revision, counts, OCR coverage, and real sync timestamps.
+5. CI builds with `VITE_STATIC_DATA=true` and `VITE_BASE_PATH=/search-ratchakitcha/`. Pages loads only project-relative static JSON; all filters and OCR search operate on the imported records. By default it loads every imported month of the current year.
+
+Generated data lives in Actions/Pages artifacts, not Git. A metadata fetch failure prevents publication; the previously deployed site stays intact. An OCR fetch failure is logged and published as reduced OCR coverage. The refresh button reloads the latest published dataset, **not** a new Actions run.
+
+### Required repository settings
+
+- Settings → Pages → Source: **GitHub Actions**
+- Settings → Environments → github-pages → Deployment branches: allow **arena/01a0d240-search-ratchakitcha**
+- Workflow: `.github/workflows/pages.yml`, triggered by pushes to the session branch or manual workflow dispatch.
+- The daily schedule is configured for **06:15 Asia/Bangkok**, but GitHub only activates scheduled workflows once the workflow file is present on the default branch. Merge the PR to enable the schedule. Checkout/deployment remains pinned to the session branch; do not delete that branch while this workflow is in use. GitHub scheduled execution can be delayed.
+- No Hugging Face token is needed for this public dataset.
+
+Local static build after a successful sync:
+
+```sh
+npm run sync:data
+VITE_STATIC_DATA=true VITE_BASE_PATH=/search-ratchakitcha/ npm run build
+```
+
+The supplied GitHub integration can push code and start Actions, but initial attempts to update Pages settings or environment branch policies returned HTTP 403. A repository administrator must apply those settings before deployment can finish.
