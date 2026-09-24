@@ -89,3 +89,9 @@ The importer pins the dataset revision and caches normalized monthly records by 
 Pagination defaults to 20 items, supports 10/20/50/100 items per page, first/previous/next/last buttons, ellipses, an accessible current-page indicator and a validated jump-to-page form. Page changes scroll back to the results heading; reduced-motion preference is respected. Filters/page-size changes reset or clamp the current page.
 
 Tests: `npm test` for parsing/filtering/year selection/pagination; `npm run test:readability` includes real-browser responsive checks plus mocked historical-year, cross-year date and pagination interactions.
+
+## OCR reader controls
+
+Document details now include an expandable reading pane, three font choices (Noto Sans Thai / Noto Serif Thai / monospaced fallback), 14–36 px nominal type size controls, and reset. Font settings persist in browser localStorage; changing display settings never changes OCR content. Desktop users may also resize the OCR pane vertically.
+
+The reader starts with the submitted search query. AND/OR modes highlight all occurrences of each term; exact mode highlights the complete phrase. Highlighting is case-insensitive, literal (regex symbols escaped) and rendered as React text, never HTML. Every hit is highlighted; the current hit has a stronger border/color and a position counter. Previous/next buttons and Enter / Shift+Enter navigate and scroll only the OCR pane. The local OCR search field can be edited or cleared without changing result filters. Empty OCR and unmatched queries are explicitly identified. The dialog traps keyboard focus, supports Escape, restores focus and prevents background scrolling while open.

@@ -4,6 +4,7 @@ export default defineConfig({
  use:{headless:true},
  projects:[
   {name:'readability',testMatch:'**/readability.pw.js',use:{baseURL:'http://127.0.0.1:4180'}},
+  {name:'ocr-reader',testMatch:'**/ocr-reader.pw.js',use:{baseURL:'http://127.0.0.1:4181'}},
   {name:'historical-search',testMatch:'**/history.pw.js',use:{baseURL:'http://127.0.0.1:4181'}},
  ],
  webServer:[

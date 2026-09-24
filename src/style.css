@@ -168,3 +168,46 @@ input[type=radio],input[type=checkbox]{width:18px;height:18px;flex-shrink:0}
 .page-jump>span{color:var(--muted)}
 .page-jump button{background:var(--dark);color:white;padding-inline:18px}
 @media(max-width:540px){.pagination-panel{font-size:.9375rem}.pagination-navigation{gap:5px}.page-numbers{order:2;flex-basis:100%}.pagination-summary{flex-direction:column;align-items:flex-start}.page-jump{justify-content:flex-start}.page-jump input{width:70px}.history-hint{font-size:.875rem}}
+
+/* OCR reading mode: independent scroll pane, literal highlights and persistent type controls. */
+.ocr-reader{margin-top:18px;min-width:0}
+.ocr-reader-toolbar,.ocr-font-controls,.ocr-findbar,.ocr-match-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ocr-reader-toolbar{padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:9px 9px 0 0;gap:12px}
+.ocr-reader-toolbar label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.875rem;min-width:0}
+.ocr-reader button,.ocr-reader select{border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:6px;min-height:44px;font:inherit;font-size:.875rem;padding:8px 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.ocr-reader select{max-width:100%;font-size:1rem}
+.ocr-font-controls{gap:0;flex-wrap:nowrap}
+.ocr-font-controls button{min-width:44px}
+.ocr-font-controls output{font-size:1rem;min-width:68px;text-align:center;font-variant-numeric:tabular-nums}
+.reader-expand{margin-left:auto}
+.ocr-findbar{background:var(--surface);padding:12px;border:1px solid var(--border);border-top:0;justify-content:space-between}
+.ocr-find-input{flex:1 1 220px;min-width:0;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:6px;padding-left:10px}
+.ocr-find-input input{border:0;background:transparent;color:var(--ink);font:inherit;font-size:1rem;padding:10px 0;min-width:0;width:100%;outline-offset:-2px}
+.ocr-find-input button{border:0;min-width:40px}
+.ocr-match-nav{gap:6px;flex-wrap:nowrap;font-size:.875rem}
+.ocr-match-nav>span{min-width:85px;text-align:center;font-variant-numeric:tabular-nums}
+.ocr-match-nav button{min-width:44px}
+.modal .ocr-reader-hint{font-size:.8125rem;color:var(--muted);margin:8px 0;line-height:1.8}
+.document-text.ocr-reader-content{height:360px;min-height:180px;max-height:65vh;resize:vertical;overflow:auto;line-height:2;word-break:normal;overflow-wrap:anywhere;white-space:pre-wrap;scrollbar-gutter:stable;border:1px solid var(--border);padding:22px;color:var(--ink)}
+.ocr-reader-content mark{background:#f8e49b;color:#382900;border-radius:3px;padding:0 1px;box-decoration-break:clone}
+.ocr-reader-content mark.ocr-current-match{background:#efb647;color:#261d00;outline:2px solid #8d570c;outline-offset:1px}
+[data-theme=dark] .ocr-reader-content mark{background:#66581e;color:#fff5c7}
+[data-theme=dark] .ocr-reader-content mark.ocr-current-match{background:#f2c568;color:#261d00;outline-color:#fff1b6}
+.modal.modal-reader-expanded{width:min(1400px,calc(100vw - 32px));max-height:calc(100dvh - 32px);height:calc(100dvh - 32px);padding:24px 30px}
+.modal-reader-expanded>h2{font-size:1.25rem;line-height:1.7;margin:10px 30px 10px 0}
+.modal-reader-expanded .ocr-notice{margin:12px 0}
+.modal-reader-expanded .ocr-reader-content{height:max(300px,calc(100dvh - 400px));max-height:none}
+.modal-reader-expanded .modal-actions{margin-top:14px}
+@media(max-width:740px){
+ .ocr-reader-toolbar{gap:10px;padding:10px}
+ .ocr-reader-toolbar label{width:100%}
+ .ocr-reader-toolbar select{flex:1;min-width:0}
+ .reader-expand{margin-left:0}
+ .ocr-findbar{padding:10px}
+ .ocr-find-input{flex-basis:100%}
+ .ocr-match-nav{width:100%;justify-content:flex-end}
+ .ocr-match-nav>span{margin-right:auto;text-align:left}
+ .document-text.ocr-reader-content{padding:16px;height:330px;max-height:60dvh}
+ .modal.modal-reader-expanded{padding:24px 16px;width:calc(100vw - 20px);height:calc(100dvh - 20px);max-height:calc(100dvh - 20px)}
+ .modal-reader-expanded .ocr-reader-content{height:65dvh;max-height:none}
+}
