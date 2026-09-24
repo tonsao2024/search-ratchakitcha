@@ -30,3 +30,10 @@ test('upstream errors propagate; no synthetic success',async()=>{
  await assert.rejects(fetchMonth('2026-09',async()=>new Response('Unavailable',{status:503})),/503/);
  await assert.rejects(fetchMonth('2026-09',async()=>{throw Error('Network failure')}),/Network failure/);
 });
+test('historical null IDs use source PDF identity, missing titles are counted not fabricated',()=>{
+ const good={...snapshot.records[0],id:null};
+ const missing={...snapshot.records[1],doctitle:null};
+ const result=parseMonthly([good,missing].map(JSON.stringify).join('\n'));
+ assert.equal(result.rows.length,1);assert.equal(result.rows[0].id,good.pdf_file);
+ assert.equal(result.skippedIncomplete,1);assert.equal(result.scanned,2);
+});

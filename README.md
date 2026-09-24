@@ -77,3 +77,15 @@ VITE_STATIC_DATA=true VITE_BASE_PATH=/search-ratchakitcha/ npm run build
 ```
 
 The supplied GitHub integration can push code and start Actions, but initial attempts to update Pages settings or environment branch policies returned HTTP 403. A repository administrator must apply those settings before deployment can finish.
+
+## Historical years and easier pagination (latest)
+
+Pages now imports **all year directories available in upstream `meta/`**, not just the current year. The UI lists years in Buddhist Era (with CE alongside). Selecting a year loads only that year's monthly files. Entering a cross-year date range and pressing Search downloads the overlapping months with at most six concurrent browser requests. Unsupported ranges produce an explicit message instead of silently showing current-year results.
+
+The importer pins the dataset revision and caches normalized monthly records by upstream file OID; outputs remain in Actions/Pages artifacts, not Git. Empty source files are valid empty months. Metadata with no usable title/identity is counted in `skippedIncomplete`; null document IDs fall back to the actual PDF filename/source URL. These records are never assigned invented titles. Category recognition remains keyword-based and may miss historical terminology.
+
+**OCR coverage:** text is imported for the current and previous calendar year only to keep the Pages artifact manageable. Older years support title, date, category, agency and original PDF links, but do not imply full-text coverage. The UI explicitly states this and shows actual OCR counts. This supersedes the earlier current-year-only import description.
+
+Pagination defaults to 20 items, supports 10/20/50/100 items per page, first/previous/next/last buttons, ellipses, an accessible current-page indicator and a validated jump-to-page form. Page changes scroll back to the results heading; reduced-motion preference is respected. Filters/page-size changes reset or clamp the current page.
+
+Tests: `npm test` for parsing/filtering/year selection/pagination; `npm run test:readability` includes real-browser responsive checks plus mocked historical-year, cross-year date and pagination interactions.

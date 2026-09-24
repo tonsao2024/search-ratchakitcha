@@ -31,8 +31,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .cache/month-import
-          key: historical-v3-${{ github.run_id }}
-          restore-keys: historical-v3-
+          key: historical-v4-${{ github.run_id }}
+          restore-keys: historical-v4-
       - name: Download real metadata and OCR from Hugging Face
         run: npm run sync:data
       - name: Build static Pages website

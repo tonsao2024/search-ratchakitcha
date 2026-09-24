@@ -39,7 +39,7 @@ const entries=await pool(files,async file=>{
  const month=file.path.match(/(\d{4}-\d{2})\.jsonl$/)[1];
  const source=`${DATASET}/resolve/${revision}/${file.path}`;
  const ocrFile=ocrFiles.get(`${month}.jsonl`);
- const cacheKey=`v3-${file.oid}-${ocrFile?.oid||'metadata'}`;
+ const cacheKey=`v4-${file.oid}-${ocrFile?.oid||'metadata'}`;
  let cached;try{cached=JSON.parse(await readFile(`.cache/month-import/${cacheKey}.json`,'utf8'))}catch{}
  let result=cached;let ocrStatus=cached?.ocrStatus||'not-imported',ocrError=cached?.ocrError||null;
  if(!result){
@@ -59,14 +59,15 @@ const entries=await pool(files,async file=>{
  const connectedAt=new Date().toISOString();
  const data={...result,month,source,revision,complete:true,stale:false,connectedAt,retrievedOn:connectedAt.slice(0,10),ocrStatus,ocrError,ocrCount:result.rows.filter(r=>r.text).length};
  await writeFile(`public/data/${month}.json`,JSON.stringify(data));
- return {month,scanned:data.scanned,count:data.rows.length,nacc:data.rows.filter(r=>r.group==='nacc').length,ocrCount:data.ocrCount,ocrStatus};
+ return {month,skippedIncomplete:data.skippedIncomplete||0,scanned:data.scanned,count:data.rows.length,nacc:data.rows.filter(r=>r.group==='nacc').length,ocrCount:data.ocrCount,ocrStatus};
 });
 manifest.months=entries.sort((a,b)=>a.month.localeCompare(b.month));
 manifest.years=years.map(year=>({year,count:entries.filter(m=>m.month.startsWith(year)).reduce((n,m)=>n+m.count,0)}));
+manifest.skippedIncomplete=entries.reduce((n,m)=>n+m.skippedIncomplete,0);
 manifest.syncedAt=new Date().toISOString();
 manifest.total=entries.reduce((sum,m)=>sum+m.count,0);manifest.ocrCount=entries.reduce((sum,m)=>sum+m.ocrCount,0);
 if(!manifest.total)throw Error('No matching announcements');
 await writeFile('public/data/manifest.json',JSON.stringify(manifest,null,2));await writeFile('public/.nojekyll','');
-const summary=`${manifest.total} announcements; ${entries.reduce((n,m)=>n+m.nacc,0)} NACC; ${manifest.ocrCount} OCR texts; ${years[0]}–${years.at(-1)}; ${entries.length} months; revision ${revision}`;
+const summary=`${manifest.total} announcements; ${entries.reduce((n,m)=>n+m.nacc,0)} NACC; ${manifest.ocrCount} OCR texts; ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; revision ${revision}`;
 console.log(`::notice title=Verified real dataset::${summary}`);
 if(process.env.GITHUB_STEP_SUMMARY)await appendFile(process.env.GITHUB_STEP_SUMMARY,`## Actual historical dataset\n${summary}\n\nOCR imported for ${currentYear-1}–${currentYear}; older metadata remains title-searchable.\n`);
