@@ -45,3 +45,10 @@ if(!manifest.total)throw Error('No matching announcements; refusing to replace p
 await writeFile('public/data/manifest.json',JSON.stringify(manifest,null,2));
 await writeFile('public/.nojekyll','');
 console.log(`Synced ${manifest.total} real announcements, ${manifest.ocrCount} OCR texts, revision ${revision}`);
+
+const nacc=manifest.months.reduce((n,m)=>n+m.nacc,0);
+console.log(`::notice title=Verified real dataset::${manifest.total} announcements; ${nacc} NACC; ${manifest.ocrCount} OCR texts; ${manifest.months.length} months; revision ${revision}`);
+if(process.env.GITHUB_STEP_SUMMARY){
+ const {appendFile}=await import('node:fs/promises');
+ await appendFile(process.env.GITHUB_STEP_SUMMARY,`## Real Hugging Face data\n\n- Announcements: ${manifest.total}\n- NACC: ${nacc}\n- OCR texts: ${manifest.ocrCount}\n- Months: ${manifest.months.map(m=>m.month).join(', ')}\n- Revision: ${revision}\n- Synced: ${manifest.syncedAt}\n`);
+}
