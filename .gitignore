@@ -5,3 +5,6 @@ dist/
 
 public/data/
 public/.nojekyll
+
+test-results/
+playwright-report/

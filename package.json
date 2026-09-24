@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "concurrently \"node server.js\" \"vite --host 0.0.0.0\"",
     "build": "vite build",
-    "test": "node --test",
+    "test": "node --test tests/*.test.js",
     "start": "NODE_ENV=production node server.js",
-    "sync:data": "node scripts/sync-data.mjs"
+    "sync:data": "node scripts/sync-data.mjs",
+    "test:readability": "playwright test"
   },
   "dependencies": {
     "express": "^5.1.0",
@@ -17,6 +18,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "concurrently": "^9.1.2",
     "vite": "^6.1.0"
   }

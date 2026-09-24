@@ -24,6 +24,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Install browser for readability checks
+        run: npx playwright install --with-deps chromium
+      - name: Check desktop and mobile readability
+        run: npm run test:readability
       - name: Download real metadata and OCR from Hugging Face
         run: npm run sync:data
       - name: Build static Pages website
