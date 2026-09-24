@@ -211,3 +211,20 @@ input[type=radio],input[type=checkbox]{width:18px;height:18px;flex-shrink:0}
  .modal.modal-reader-expanded{padding:24px 16px;width:calc(100vw - 20px);height:calc(100dvh - 20px);max-height:calc(100dvh - 20px)}
  .modal-reader-expanded .ocr-reader-content{height:65dvh;max-height:none}
 }
+.year-picker{width:100%;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.year-picker-label{color:var(--ink);font-weight:500}
+.year-picker .year-picker-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;max-width:100%;border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:8px 12px;color:var(--ink);font-size:1rem;text-align:left;white-space:normal}
+.year-picker-options{flex:1 0 100%;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.year-picker-tools,.year-picker-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.year-picker-tools button,.year-picker-actions button{min-height:44px;padding:8px 12px;border-radius:6px;font-size:.9375rem}
+.year-picker-tools button{border:1px solid var(--border)}
+.year-picker-actions .primary{color:#fff}
+.year-picker .year-find{width:100%;font-size:1rem;padding:10px 12px;min-height:44px}
+.year-picker .year-all{width:100%;font-size:1rem}
+.year-checkboxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:4px;max-height:230px;overflow:auto;overscroll-behavior:contain;padding:4px}
+.year-checkboxes label{display:flex;align-items:center;gap:9px;min-height:44px;font-size:1rem;padding:6px;border-radius:5px;cursor:pointer}
+.year-checkboxes label:has(input:checked){background:var(--green);color:var(--ink)}
+.year-checkboxes small{font-size:.8125rem;color:var(--muted)}
+.year-picker-hint{font-size:.875rem;color:var(--muted);line-height:1.8}
+.year-load-progress{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 0;font-size:.9375rem;color:var(--purple)}
+.year-load-progress progress{max-width:100%;accent-color:var(--purple)}

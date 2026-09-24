@@ -67,6 +67,15 @@ manifest.skippedIncomplete=entries.reduce((n,m)=>n+m.skippedIncomplete,0);
 manifest.syncedAt=new Date().toISOString();
 manifest.total=entries.reduce((sum,m)=>sum+m.count,0);manifest.ocrCount=entries.reduce((sum,m)=>sum+m.ocrCount,0);
 if(!manifest.total)throw Error('No matching announcements');
+// Annual bundles make multi-year and all-year browsing practical on static Pages.
+manifest.yearFiles=[];
+for(const year of years){
+ const entriesForYear=manifest.months.filter(m=>m.month.startsWith(year+'-'));
+ if(!entriesForYear.length)continue;
+ const batches=await Promise.all(entriesForYear.map(m=>readFile(`public/data/${m.month}.json`,'utf8').then(JSON.parse)));
+ await writeFile(`public/data/${year}.json`,JSON.stringify({year,revision,complete:true,rows:batches.flatMap(m=>m.rows),scanned:batches.reduce((n,m)=>n+m.scanned,0)}));
+ manifest.yearFiles.push(year);
+}
 await writeFile('public/data/manifest.json',JSON.stringify(manifest,null,2));await writeFile('public/.nojekyll','');
 const summary=`${manifest.total} announcements; ${entries.reduce((n,m)=>n+m.nacc,0)} NACC; ${manifest.ocrCount} OCR texts; ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; revision ${revision}`;
 console.log(`::notice title=Verified real dataset::${summary}`);
