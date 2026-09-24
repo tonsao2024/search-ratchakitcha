@@ -13,7 +13,10 @@ for(const width of [360,390,768,1280]){
   expect(await size('.card-meta')).toBeGreaterThanOrEqual(15);
   expect(await size('.category')).toBeGreaterThanOrEqual(16);
   expect(await size('.search-main input')).toBeGreaterThanOrEqual(16);
-  const noOverflow=async()=>expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  const noOverflow=async()=>{
+   const layout=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).slice(0,12).map(el=>({tag:el.tagName,cls:el.className,right:el.getBoundingClientRect().right}))}));
+   expect(layout.scroll,JSON.stringify(layout)).toBeLessThanOrEqual(layout.width+1);
+  };
   await noOverflow();
   await page.getByRole('button',{name:'ค้นหาขั้นสูง'}).click();
   await noOverflow();

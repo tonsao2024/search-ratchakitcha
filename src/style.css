@@ -144,3 +144,9 @@ input[type=radio],input[type=checkbox]{width:18px;height:18px;flex-shrink:0}
  .result-tools{justify-content:space-between}
  .month-loader label{width:100%}
 }
+.bottom-callout{flex-wrap:wrap}
+@media(max-width:900px){
+ .reader-scene{display:none}
+ .hero-copy{max-width:none}
+ .hero{min-height:0}
+}
