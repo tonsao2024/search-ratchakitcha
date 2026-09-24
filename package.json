@@ -1,0 +1,23 @@
+{
+  "name": "ratcha-search",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node server.js\" \"vite --host 0.0.0.0\"",
+    "build": "vite build",
+    "test": "node --test",
+    "start": "NODE_ENV=production node server.js",
+    "sync:data": "node scripts/sync-data.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "vite": "^6.1.0"
+  }
+}

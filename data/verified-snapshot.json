@@ -1,0 +1,14 @@
+{
+  "source": "https://huggingface.co/datasets/open-law-data-thailand/soc-ratchakitcha/raw/main/meta/2026/2026-09.jsonl",
+  "retrievedOn": "2026-09-24",
+  "month": "2026-09",
+  "complete": false,
+  "note": "Five actual records retrieved through the web reader from chunks 199 and 207. This is a partial offline snapshot, not a complete monthly import. Original metadata fields retained; no OCR supplied.",
+  "records": [
+    {"no":"2","id":"2026-09-23-00132337","doctitle":"ประกาศสำนักนายกรัฐมนตรี เรื่อง แต่งตั้งกรรมการอื่นในคณะกรรมการการไฟฟ้าส่วนภูมิภาค [จำนวน 3 คน 1. นายพงษ์นรา เย็นยิ่ง ฯลฯ]","bookNo":"143","section":"232","category":"งพิเศษ","publishDate":"2026-09-23","pageNo":"2","pdf_file":"2026-09-23-00132337.pdf","source_url":"https://ratchakitcha.soc.go.th/documents/132337.pdf","is_test":false},
+    {"no":"584","id":"2026-09-23-00132410","doctitle":"พระบรมราชโองการ ประกาศ พระราชทานยศข้าราชการในพระองค์ฝ่ายทหารชั้นนายพลและแต่งตั้งให้ดำรงตำแหน่ง [จำนวน 11 นาย 1. พลตรี จิรสิทธิ์  จันทรมี ฯลฯ]","bookNo":"143","section":"63","category":"ข","publishDate":"2026-09-23","pageNo":"1","pdf_file":"2026-09-23-00132410.pdf","source_url":"https://ratchakitcha.soc.go.th/documents/132410.pdf","is_test":false},
+    {"no":"585","id":"2026-09-23-00132412","doctitle":"พระบรมราชโองการ ประกาศ พระราชทานยศข้าราชการในพระองค์ฝ่ายตำรวจชั้นนายพลและแต่งตั้งให้ดำรงตำแหน่ง [จำนวน 4 นาย 1. พันตำรวจเอก ปรีดี สุขเริงรื่น ฯลฯ]","bookNo":"143","section":"63","category":"ข","publishDate":"2026-09-23","pageNo":"4","pdf_file":"2026-09-23-00132412.pdf","source_url":"https://ratchakitcha.soc.go.th/documents/132412.pdf","is_test":false},
+    {"no":"3","id":"2026-09-22-00131698","doctitle":"ประกาศสำนักนายกรัฐมนตรี เรื่อง แต่งตั้งข้าราชการตุลาการ [จำนวน ๑๐๖ ราย ๑. นางสาวอัคร์ภา  กุลกาญจนาธร ฯลฯ]","bookNo":"143","section":"230","category":"งพิเศษ","publishDate":"2026-09-22","pageNo":"36","pdf_file":"2026-09-22-00131698.pdf","source_url":"https://ratchakitcha.soc.go.th/documents/131698.pdf","is_test":false},
+    {"no":"16","id":"2026-09-22-00132340","doctitle":"ประกาศวุฒิสภา เรื่อง แต่งตั้งข้าราชการอัยการ [นายโกวิท ศรีไพโรจน์]","bookNo":"143","section":"230","category":"งพิเศษ","publishDate":"2026-09-22","pageNo":"70","pdf_file":"2026-09-22-00132340.pdf","source_url":"https://ratchakitcha.soc.go.th/documents/132340.pdf","is_test":false}
+  ]
+}
