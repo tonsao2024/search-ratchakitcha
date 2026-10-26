@@ -1,9 +1,10 @@
 import React from 'react';
 import {
   SlidersHorizontal, ChevronDown, CalendarDays, Database, Search,
-  LayoutGrid, Users, ShieldCheck, X, RefreshCw, Info, Check,
+  LayoutGrid, Users, ShieldCheck, X, RefreshCw, Info, Check, UserMinus,
 } from 'lucide-react';
 import YearPicker, { yearLabel } from './YearPicker';
+import { groupLabels } from './search';
 import ThaiDatePicker from './ThaiDatePicker';
 
 function Group({ title, icon: Icon, children, className = '' }) {
@@ -56,7 +57,7 @@ export default function FilterPanel({
       {(
         <div className="active-filters" aria-label="ตัวกรองที่ใช้">
           <span className="filter-context">ช่วงข้อมูล: {STATIC && allMonths ? `${yearLabel(selectedYears)}${selectedYears === null ? '' : ' พ.ศ.'} · ทุกเดือน` : monthTH(month)}</span>
-          {f.group !== 'all' && <button type="button" onClick={() => change('group', 'all')}>{f.group === 'nacc' ? 'ป.ป.ช.' : 'แต่งตั้งบุคลากร'}<X size={12} /></button>}
+          {f.group !== 'all' && <button type="button" onClick={() => change('group', 'all')}>{groupLabels[f.group] || f.group}<X size={12} /></button>}
           {savedOnly && <button type="button" onClick={onClearSaved}>เฉพาะที่บันทึกไว้<X size={12} /></button>}
           {f.exclude && <button type="button" onClick={() => change('exclude', '')}>ไม่รวม: {f.exclude}<X size={12} /></button>}
           {f.agency && <button type="button" onClick={() => change('agency', '')}>หน่วยงาน: {f.agency}<X size={12} /></button>}
@@ -154,17 +155,17 @@ export default function FilterPanel({
                 <button type="button" className={`category ${f.group === 'all' ? 'selected' : ''}`} onClick={() => change('group', 'all')}>
                   <span><LayoutGrid size={16} /> ทั้งหมด</span><small>{rows.length}</small>
                 </button>
-                {[['appointments', Users, 'แต่งตั้งบุคลากร'], ['nacc', ShieldCheck, 'ป.ป.ช.']].map(([key, Icon, label]) => (
+                {[['appointments', Users, groupLabels.appointments], ['removals', UserMinus, groupLabels.removals], ['nacc', ShieldCheck, groupLabels.nacc]].map(([key, Icon, label]) => (
                   <React.Fragment key={key}>
                     <button type="button" className={`category ${f.group === key ? 'selected' : ''}`} onClick={() => change('group', key)}>
-                      <span><Icon size={16} /> {label}</span><ChevronDown size={13} />
+                      <span><Icon size={16} /> {label}<small>{rows.filter(row => row.group === key).length}</small></span><ChevronDown size={13} />
                     </button>
                     {f.group === key && (
                       <div className="subcategories">
                         {groups[key].map(sub => (
                           <label key={sub}>
                             <input type="radio" name="sub" checked={f.sub === sub} onChange={() => change('sub', sub)} />
-                            {sub}<small>{rows.filter(row => row.sub === sub).length}</small>
+                            {sub}<small>{rows.filter(row => row.group === key && row.sub === sub).length}</small>
                           </label>
                         ))}
                         {f.sub && <button type="button" onClick={() => change('sub', '')}>ทุกประเภทย่อย</button>}

@@ -140,7 +140,7 @@ const manifest = {
   years: [],
   months: [],
   syncedAt: null,
-  integrityVersion: 2,
+  integrityVersion: 3,
   ocrPolicyYears: ocrYears,
   ocrMonths: [...ocrFiles.keys()].sort(),
 };
@@ -230,7 +230,8 @@ const entries = await pool(files, async file => {
   const source = `${DATASET}/resolve/${revision}/${file.path}`;
   const ocrFile = ocrFiles.get(month);
   const expectedBytes = sourceBytes(file);
-  const cacheKey = `v5-${file.oid}-${ocrFile?.oid || 'metadata'}`;
+  // v6: classification now imports removal notices, so earlier caches must be rebuilt.
+  const cacheKey = `v6-${file.oid}-${ocrFile?.oid || 'metadata'}`;
   let cached = null;
   try {
     cached = JSON.parse(await readFile(`.cache/month-import/${cacheKey}.json`, 'utf8'));
@@ -296,6 +297,8 @@ const entries = await pool(files, async file => {
     skippedIncomplete: data.skippedIncomplete || 0,
     scanned: data.scanned,
     count: data.rows.length,
+    appointments: data.rows.filter(row => row.group === 'appointments').length,
+    removals: data.rows.filter(row => row.group === 'removals').length,
     nacc: data.rows.filter(row => row.group === 'nacc').length,
     ocrCount,
     ocrStatus: data.ocrStatus,
@@ -311,6 +314,9 @@ manifest.years = years.map(year => ({
   count: entries.filter(month => month.month.startsWith(year)).reduce((sum, month) => sum + month.count, 0),
 }));
 manifest.skippedIncomplete = entries.reduce((sum, month) => sum + month.skippedIncomplete, 0);
+manifest.appointments = entries.reduce((sum, month) => sum + month.appointments, 0);
+manifest.removals = entries.reduce((sum, month) => sum + month.removals, 0);
+manifest.nacc = entries.reduce((sum, month) => sum + month.nacc, 0);
 manifest.syncedAt = new Date().toISOString();
 manifest.total = entries.reduce((sum, month) => sum + month.count, 0);
 manifest.ocrCount = entries.reduce((sum, month) => sum + month.ocrCount, 0);
@@ -354,7 +360,7 @@ await writeFile(manifestTemp, JSON.stringify(manifest, null, 2));
 await rename(manifestTemp, 'public/data/manifest.json');
 await writeFile('public/.nojekyll', '');
 const current = manifest.coverage;
-const summary = `${manifest.total} announcements; ${entries.reduce((sum, month) => sum + month.nacc, 0)} NACC; ${manifest.ocrCount} OCR texts; ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; ${requiredMonths(referenceMonth).length} current-year months verified; ${current.currentMonthCount} records in ${referenceMonth}; OCR ${current.ocrStatus}; revision ${revision}`;
+const summary = `${manifest.total} announcements (${manifest.appointments} appointments, ${manifest.removals} removals); ${manifest.nacc} NACC; ${manifest.ocrCount} OCR texts; ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; ${requiredMonths(referenceMonth).length} current-year months verified; ${current.currentMonthCount} records in ${referenceMonth}; OCR ${current.ocrStatus}; revision ${revision}`;
 console.log(`::notice title=Verified real dataset::${summary}`);
 if (process.env.GITHUB_STEP_SUMMARY) {
   await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Actual historical dataset\n${summary}\n\nMetadata bytes/lines are checked against the pinned upstream tree. OCR imported for ${ocrYears.join('–')}; older metadata remains title-searchable.\n`);

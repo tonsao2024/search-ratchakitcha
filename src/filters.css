@@ -158,7 +158,8 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 24px 36px; }
   line-height: 1.6;
   text-align: left;
 }
-.filter-panel .category > span { min-width: 0; }
+.filter-panel .category > span { min-width: 0; flex-wrap: wrap; }
+.filter-panel .category > span small { margin-left: 4px; font-size: 0.8125rem; }
 .filter-panel .category.selected { background: #e8eadd; color: #46513a; }
 .filter-panel .subcategories { margin: 2px 0 6px 12px; padding-left: 10px; gap: 7px; }
 .filter-panel .subcategories label { font-size: 0.9375rem; line-height: 1.6; }
@@ -242,3 +243,9 @@ footer { margin: 0 24px 24px; padding-top: 16px; border-top: 1px solid var(--bor
 .thai-date-fields select:nth-last-child(2) { flex: 1.5; }
 .thai-date-picker small { color: #a34436; }
 .filter-context { align-self: center; color: var(--muted); font-size: .875rem; overflow-wrap: anywhere; }
+
+/* Removal notices ("พ้นจากตำแหน่ง") use a warm accent so they are distinguishable from appointments. */
+.tag.removal { background: #f7e6da; color: #98583a; }
+.document-icon.removal { background: #f8e9de; color: #b0795a; }
+[data-theme=dark] .tag.removal { background: #46352c; color: #ddb79d; }
+[data-theme=dark] .document-icon.removal { background: #3f3028; color: #cba286; }

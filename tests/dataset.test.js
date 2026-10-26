@@ -43,3 +43,14 @@ test('historical null IDs use source PDF identity, missing titles are counted no
  assert.equal(result.rows.length,1);assert.equal(result.rows[0].id,good.pdf_file);
  assert.equal(result.skippedIncomplete,1);assert.equal(result.scanned,2);
 });
+
+test('monthly import keeps removal notices and drops procedural rules',()=>{
+ const removal={...snapshot.records[0],id:'2026-09-23-00999999',pdf_file:'2026-09-23-00999999.pdf',source_url:'https://ratchakitcha.soc.go.th/documents/999999.pdf',doctitle:'ประกาศสำนักนายกรัฐมนตรี เรื่อง ให้ข้าราชการพลเรือนพ้นจากตำแหน่ง'};
+ const rule={...removal,id:'2026-09-23-00999998',pdf_file:'2026-09-23-00999998.pdf',source_url:'https://ratchakitcha.soc.go.th/documents/999998.pdf',doctitle:'ระเบียบกระทรวงการคลัง ว่าด้วยการพ้นจากตำแหน่งของข้าราชการ'};
+ const parsed=parseMonthly([...snapshot.records,removal,rule].map(JSON.stringify).join('\n'));
+ const row=parsed.rows.find(r=>r.id===removal.id);
+ assert.equal(row.group,'removals');
+ assert.equal(row.sub,'ข้าราชการพลเรือน');
+ assert.equal(parsed.rows.some(r=>r.id===rule.id),false);
+ assert.equal(parsed.rows.length,6);
+});

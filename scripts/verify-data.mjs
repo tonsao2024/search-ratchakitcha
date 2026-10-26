@@ -38,6 +38,11 @@ for (const entry of manifest.months) {
     assert(file.lineCount === entry.lineCount, `${entry.month}: JSONL line count differs from upstream`);
   }
   assert(file.rows.filter(row => row.text).length === (entry.ocrCount || 0), `${entry.month}: OCR count differs from manifest`);
+  for (const group of ['appointments', 'removals', 'nacc']) {
+    if (typeof entry[group] === 'number') {
+      assert(file.rows.filter(row => row.group === group).length === entry[group], `${entry.month}: ${group} count differs from manifest`);
+    }
+  }
   if (file.ocr?.expectedBytes && file.ocr.byteLength !== undefined) {
     assert(file.ocr.byteLength === file.ocr.expectedBytes, `${entry.month}: OCR download was truncated`);
   }
@@ -62,7 +67,7 @@ for (const year of manifest.yearFiles || []) {
   assert(new Set(bundle.rows.map(row => row.id)).size === bundle.rows.length, `${year}: duplicate document IDs in annual bundle`);
 }
 
-const summary = `${manifest.months.length} monthly files and ${manifest.yearFiles?.length || 0} annual bundles verified; ${verifiedRows} rows; ${verifiedLines} JSONL lines; ${verifiedBytes} source bytes; current month ${referenceMonth}: ${currentEntry.count} rows / ${currentEntry.ocrCount || 0} OCR; revision ${manifest.revision}`;
+const summary = `${manifest.months.length} monthly files and ${manifest.yearFiles?.length || 0} annual bundles verified; ${verifiedRows} rows (${manifest.appointments ?? '?'} appointments, ${manifest.removals ?? '?'} removals, ${manifest.nacc ?? '?'} NACC); ${verifiedLines} JSONL lines; ${verifiedBytes} source bytes; current month ${referenceMonth}: ${currentEntry.count} rows / ${currentEntry.ocrCount || 0} OCR; revision ${manifest.revision}`;
 console.log(`::notice title=Published data integrity verified::${summary}`);
 if (process.env.GITHUB_STEP_SUMMARY) {
   await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Published data integrity\n${summary}\n`);
