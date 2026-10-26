@@ -11,7 +11,7 @@ import { loadPublishedData } from './static-data';
 import Pagination from './Pagination';
 import OcrReader from './OcrReader';
 import FilterPanel from './FilterPanel';
-import { groups, filterRows, classify, DATASET } from './search';
+import { groups, groupTags, filterRows, classify, DATASET } from './search';
 import './style.css';
 import './filters.css';
 
@@ -283,7 +283,7 @@ function App() {
       <main>
         <section className="intro">
           <h1>ค้นประกาศราชกิจจานุเบกษา</h1>
-          <p>แต่งตั้งบุคลากรและ ป.ป.ช. • ข้อมูลจริงจาก Open Law Data Thailand</p>
+          <p>แต่งตั้งบุคลากร · พ้นจากตำแหน่ง · ป.ป.ช. • ข้อมูลจริงจาก Open Law Data Thailand</p>
         </section>
 
         <section className="search-panel">
@@ -356,7 +356,7 @@ function App() {
               <Info size={15} />
               <span>
                 {dataInfo
-                  ? `${dataInfo.month} • ${rows.length.toLocaleString('th-TH')} ประกาศ • OCR ${rows.filter(r => r.text).length.toLocaleString('th-TH')}${dataInfo.latestMonth ? ` • ล่าสุด ${monthTH(dataInfo.latestMonth)}` : ''}${connectionError ? ' • ตรวจสอบการซิงก์' : ''}`
+                  ? `${dataInfo.month} • ${rows.length.toLocaleString('th-TH')} ประกาศ • แต่งตั้ง ${rows.filter(r => r.group === 'appointments').length.toLocaleString('th-TH')} • พ้นจากตำแหน่ง ${rows.filter(r => r.group === 'removals').length.toLocaleString('th-TH')} • ป.ป.ช. ${rows.filter(r => r.group === 'nacc').length.toLocaleString('th-TH')} • OCR ${rows.filter(r => r.text).length.toLocaleString('th-TH')}${dataInfo.latestMonth ? ` • ล่าสุด ${monthTH(dataInfo.latestMonth)}` : ''}${connectionError ? ' • ตรวจสอบการซิงก์' : ''}`
                   : 'กำลังเตรียมข้อมูลจริง'}
               </span>
               {dataInfo && <a href={dataInfo.source} target="_blank" rel="noreferrer">ต้นทาง <ExternalLink size={12} /></a>}
@@ -365,10 +365,10 @@ function App() {
             <div className={`result-list ${view === 'grid' ? 'grid' : ''}`} aria-busy={loading}>
               {visible.map((r, i) => (
                 <article className="result-card" key={r.id} style={{ animationDelay: `${i * 45}ms` }}>
-                  <div className={`document-icon ${r.group === 'nacc' ? 'lavender' : ''}`}><FileText size={22} /></div>
+                  <div className={`document-icon ${r.group === 'nacc' ? 'lavender' : r.group === 'removals' ? 'removal' : ''}`}><FileText size={22} /></div>
                   <div className="card-content">
                     <div className="card-tags">
-                      <span className={`tag ${r.group === 'nacc' ? 'purple' : ''}`}>{r.group === 'nacc' ? 'ป.ป.ช.' : 'แต่งตั้ง'}</span>
+                      <span className={`tag ${r.group === 'nacc' ? 'purple' : r.group === 'removals' ? 'removal' : ''}`}>{groupTags[r.group] || 'ประกาศ'}</span>
                       <span className="sub-tag">{r.sub}</span>
                       {r.text && <span className="ocr-tag">OCR</span>}
                     </div>
@@ -447,7 +447,8 @@ function App() {
               <>
                 <div className="modal-symbol"><Database /></div>
                 <h2>เกี่ยวกับข้อมูล</h2>
-                <p>ราชค้นใช้ชุดข้อมูล soc-ratchakitcha ของ Open Law Data Thailand (CC BY 4.0) คัดเฉพาะประกาศแต่งตั้งและประกาศเกี่ยวกับ ป.ป.ช.</p>
+                <p>ราชค้นใช้ชุดข้อมูล soc-ratchakitcha ของ Open Law Data Thailand (CC BY 4.0) คัดเฉพาะประกาศแต่งตั้ง ประกาศให้พ้นจากตำแหน่ง และประกาศเกี่ยวกับ ป.ป.ช.</p>
+                <p>หมวด “พ้นจากตำแหน่ง” มาจากชื่อประกาศที่มีคำว่า พ้นจากตำแหน่ง พ้นจากหน้าที่ หรือถอดถอนจากตำแหน่ง การจำแนกเป็นกฎคำสำคัญจากชื่อเรื่อง ไม่ใช่การรับรองจากต้นทาง</p>
                 <p>GitHub Actions ซิงก์ metadata และ OCR ทุกวัน ตรวจสอบขนาดไฟล์ จำนวนบรรทัด revision และความครบถ้วนของเดือนปัจจุบันก่อนเผยแพร่</p>
                 <p>OCR อาจคลาดเคลื่อน ควรตรวจสอบ PDF ต้นฉบับก่อนใช้เป็นหลักฐานทางกฎหมาย</p>
                 <a className="primary" href={DATASET} target="_blank" rel="noreferrer">เปิดฐานข้อมูลต้นทาง <ExternalLink size={15} /></a>

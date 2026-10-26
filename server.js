@@ -5,13 +5,18 @@ import {fetchMonth,normalizeRecord,validMonth} from './src/dataset.js';
 const app=express();
 const cache=new Map(),pending=new Map();
 const snapshot=JSON.parse(await readFile(new URL('./data/verified-snapshot.json',import.meta.url),'utf8'));
+// Re-apply the current classification rules so caches written before the
+// removal ("พ้นจากตำแหน่ง") category existed still show every group.
+function reclassify(data){
+ return {...data,rows:(data.rows||[]).map(row=>({...row,...classify(row.title)})).filter(row=>row.group!=='other')};
+}
 cache.set(snapshot.month,{...snapshot,records:undefined,rows:snapshot.records.map(normalizeRecord).filter(Boolean),scanned:5,connectedAt:null,stale:true});
 async function loadCache(month){
  if(cache.has(month))return cache.get(month);
- try{const saved=JSON.parse(await readFile(`.cache/${month}.json`,'utf8'));cache.set(month,saved);return saved}catch{return null}
+ try{const saved=reclassify(JSON.parse(await readFile(`.cache/${month}.json`,'utf8')));cache.set(month,saved);return saved}catch{return null}
 }
 // A persisted complete import is preferable to the bundled partial snapshot.
-try{const saved=JSON.parse(await readFile(`.cache/${snapshot.month}.json`,'utf8'));cache.set(snapshot.month,saved)}catch{}
+try{const saved=reclassify(JSON.parse(await readFile(`.cache/${snapshot.month}.json`,'utf8')));cache.set(snapshot.month,saved)}catch{}
 async function sync(month){
  if(pending.has(month))return pending.get(month);
  const task=(async()=>{
