@@ -42,8 +42,12 @@ export default function FilterPanel({
           <ChevronDown size={16} className={open ? 'rotate' : ''} />
         </button>
         <div className="filter-panel-actions">
-          <span className="coverage-status" role="status" aria-live="polite">
-            {loading ? 'กำลังโหลดข้อมูล…' : `ผลลัพธ์ ${resultCount.toLocaleString('th-TH')} ประกาศ จากข้อมูลที่โหลด ${rows.length.toLocaleString('th-TH')} รายการ`}
+          <span className={`coverage-status${dataInfo?.fallbackTo ? ' warn' : ''}`} role="status" aria-live="polite">
+            {loading
+              ? 'กำลังโหลดข้อมูล…'
+              : dataInfo?.fallbackTo
+                ? `ต้นทางยังไม่มีไฟล์เดือน${dataInfo.requestedMonth ? ` ${monthTH(dataInfo.requestedMonth)}` : ''} • แสดง ${monthTH(dataInfo.fallbackTo)} แทน • ผลลัพธ์ ${resultCount.toLocaleString('th-TH')} ประกาศ`
+                : `ผลลัพธ์ ${resultCount.toLocaleString('th-TH')} ประกาศ จากข้อมูลที่โหลด ${rows.length.toLocaleString('th-TH')} รายการ`}
           </span>
           <button type="button" className="filter-reset" onClick={onReset}>ล้างค่า</button>
         </div>

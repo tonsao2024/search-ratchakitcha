@@ -55,8 +55,12 @@ for(const width of [390,1280])test(`Historical years, cross-year dates, and pagi
  await page.getByRole('button',{name:'เลือกทุกปี',exact:true}).click();
  await page.getByRole('button',{name:'ใช้ปีที่เลือก',exact:true}).click();
  await expect(pager).toContainText('จาก 94 รายการ');
- await page.getByText('ตั้งแต่วันที่',{exact:true}).locator('input').fill('2025-01-01');
- await page.getByText('ถึงวันที่',{exact:true}).locator('input').fill('2026-12-31');
+ await page.getByLabel('ตั้งแต่วันที่ วัน',{exact:true}).selectOption('01');
+ await page.getByLabel('ตั้งแต่วันที่ เดือน',{exact:true}).selectOption('01');
+ await page.getByLabel('ตั้งแต่วันที่ ปี พ.ศ.',{exact:true}).selectOption('2025');
+ await page.getByLabel('ถึงวันที่ วัน',{exact:true}).selectOption('31');
+ await page.getByLabel('ถึงวันที่ เดือน',{exact:true}).selectOption('12');
+ await page.getByLabel('ถึงวันที่ ปี พ.ศ.',{exact:true}).selectOption('2026');
  await page.locator('.search-main').getByRole('button',{name:'ค้นหาประกาศ'}).click();
  await expect(pager).toContainText('จาก 92 รายการ');
  await page.getByRole('button',{name:'เลือกปีประกาศ',exact:true}).click();
@@ -80,6 +84,8 @@ test('Current month falls back to the latest published month with a visible warn
  });
  await page.goto('/',{waitUntil:'domcontentloaded'});
  await expect(page.locator('.coverage-status')).toContainText('ต้นทางยังไม่มีไฟล์เดือน');
- await expect(page.getByLabel('เดือนของฐานข้อมูล (ค.ศ.)')).toHaveValue('2026-09');
+ // ThaiDatePicker แยกเดือน/ปีเป็น select (ค่าปีเป็น ค.ศ. แสดงผลเป็น พ.ศ.)
+ await expect(page.getByLabel('เดือนของฐานข้อมูล เดือน',{exact:true})).toHaveValue('09');
+ await expect(page.getByLabel('เดือนของฐานข้อมูล ปี พ.ศ.',{exact:true})).toHaveValue('2026');
  await expect(page.locator('.result-card')).toHaveCount(2);
 });
