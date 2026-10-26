@@ -1,7 +1,7 @@
 name: Sync real data and deploy Pages
 on:
   push:
-    branches: [main, arena/e5ab8751-search-ratchakitcha]
+    branches: [main]
   workflow_dispatch:
     inputs:
       data_month:

@@ -180,7 +180,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 24px 36px; }
 .dataset-banner > span { flex-basis: auto; }
 .result-card { padding: 18px 18px 14px; gap: 15px; }
 .document-icon { width: 44px; height: 58px; }
-.card-meta, .grid .card-meta { font-size: 0.875rem; }
+.card-meta, .grid .card-meta { font-size: 0.9375rem; }
 .empty { padding: 40px 20px; }
 .empty h3 { font-size: 1.125rem; }
 .empty p { display: none; }

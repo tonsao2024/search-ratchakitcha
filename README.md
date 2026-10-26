@@ -63,7 +63,7 @@ Generated data lives in Actions/Pages artifacts, not Git. A metadata fetch failu
 
 ### Current-month coverage and completeness checks (fix)
 
-The previous deployment stopped at `2026-09` because its workflow was pinned to an expired session branch and the daily schedule only runs from the default branch. The current workflow checks out the triggering ref, runs on pushes to `main` and this session branch, and is dispatched manually with an optional `data_month` override. Before publishing, `npm run verify:data` checks:
+The previous deployment stopped at `2026-09` because its workflow was pinned to an expired session branch and the daily schedule only runs from the default branch. The current workflow checks out the triggering ref, runs on pushes to `main`, manual dispatch and the daily schedule, with an optional `data_month` override. Before publishing, `npm run verify:data` checks:
 
 - the manifest revision, `currentMonth`, and all months from January through the required month of the current year;
 - each monthly file's raw byte length and JSONL line count against the upstream tree entry (LFS sizes included), plus row, OCR, duplicate-ID and revision consistency;
@@ -77,8 +77,8 @@ The previous deployment stopped at `2026-09` because its workflow was pinned to 
 
 - Settings → Pages → Source: **GitHub Actions**
 - Settings → Environments → github-pages → Deployment branches: allow **main** and **arena/e5ab8751-search-ratchakitcha**.
-- Workflow: `.github/workflows/pages.yml`, triggered by pushes to `main` or this session branch, manual dispatch, and the daily schedule. Checkout uses the triggering ref rather than a hard-coded branch.
-- The daily schedule is configured for **06:15 Asia/Bangkok**, but GitHub only activates scheduled workflows once the workflow file is present on the default branch. Merge the PR into `main` to enable the schedule. Until then, push/manual runs on the session branch keep Pages up to date. GitHub scheduled execution can be delayed.
+- Workflow: `.github/workflows/pages.yml`, triggered by pushes to `main`, manual dispatch, and the daily schedule. Checkout uses the triggering ref rather than a hard-coded branch.
+- The daily schedule is configured for **06:15 Asia/Bangkok** and is active because the workflow is present on the default branch `main`. GitHub scheduled execution can be delayed. Manual dispatch on another ref still requires that ref to satisfy the `github-pages` environment branch policy.
 - No Hugging Face token is needed for this public dataset.
 
 Local static build after a successful sync:
@@ -89,7 +89,7 @@ npm run verify:data
 VITE_STATIC_DATA=true VITE_BASE_PATH=/search-ratchakitcha/ npm run build
 ```
 
-The `github-pages` environment uses custom branch policies. Both `main` and the active session branch are allowed; if the session branch is renamed, an administrator must add the new branch to that environment before deployment can finish.
+The `github-pages` environment uses custom branch policies. `main` is allowed, so deployment from the default branch does not require an administrator to add the current session branch. Deployments from other refs remain blocked unless an administrator adds them.
 
 ## Historical years and easier pagination (latest)
 
