@@ -1,4 +1,4 @@
-import React,{useState} from 'react';
+import React,{useState,useRef,useEffect} from 'react';
 import {ChevronDown,Check} from 'lucide-react';
 export function yearLabel(value){
  if(value===null)return 'ทุกปี';
@@ -7,10 +7,17 @@ export function yearLabel(value){
 }
 export default function YearPicker({years,value,disabled,onApply}){
  const [open,setOpen]=useState(false),[draft,setDraft]=useState(value),[find,setFind]=useState('');
+ const container=useRef(null);
+ useEffect(()=>{
+  if(!open)return;
+  const dismiss=e=>{if(!container.current?.contains(e.target)){setOpen(false);setFind('')}};
+  document.addEventListener('pointerdown',dismiss);
+  return ()=>document.removeEventListener('pointerdown',dismiss);
+ },[open]);
  const list=years.filter(y=>`${Number(y)+543} ${y}`.includes(find.trim()));
  function toggle(year){setDraft(previous=>{const selected=previous===null?years:previous;return selected.includes(year)?selected.filter(y=>y!==year):[...selected,year]})}
  function close(){setOpen(false);setFind('')}
- return <div className="year-picker"><span className="year-picker-label" id="year-picker-label">ปีประกาศ (พ.ศ.)</span><button type="button" className="year-picker-trigger" aria-label="เลือกปีประกาศ" aria-expanded={open} aria-controls="year-picker-options" disabled={disabled} onClick={()=>{if(open)close();else{setDraft(value);setOpen(true)}}}>{yearLabel(value)}<ChevronDown size={16}/></button>
+ return <div className="year-picker" ref={container}><span className="year-picker-label" id="year-picker-label">ปีประกาศ (พ.ศ.)</span><button type="button" className="year-picker-trigger" aria-label="เลือกปีประกาศ" aria-expanded={open} aria-controls="year-picker-options" disabled={disabled} onClick={()=>{if(open)close();else{setDraft(value);setOpen(true)}}}>{yearLabel(value)}<ChevronDown size={16}/></button>
   {open&&<div id="year-picker-options" className="year-picker-options" role="group" aria-labelledby="year-picker-label" onKeyDown={e=>{if(e.key==='Escape'){close();e.currentTarget.parentElement.querySelector('.year-picker-trigger').focus()}}}>
    <div className="year-picker-tools"><button type="button" onClick={()=>setDraft(null)}>เลือกทุกปี</button><button type="button" onClick={()=>setDraft([])}>ล้างปีที่เลือก</button></div>
    <label className="year-all"><input type="checkbox" checked={draft===null} onChange={e=>setDraft(e.target.checked?null:[])}/> ทุกปีที่มีในฐานข้อมูล ({years.length} ปี)</label>

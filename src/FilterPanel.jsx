@@ -3,7 +3,8 @@ import {
   SlidersHorizontal, ChevronDown, CalendarDays, Database, Search,
   LayoutGrid, Users, ShieldCheck, X, RefreshCw, Info, Check,
 } from 'lucide-react';
-import YearPicker from './YearPicker';
+import YearPicker, { yearLabel } from './YearPicker';
+import ThaiDatePicker from './ThaiDatePicker';
 
 function Group({ title, icon: Icon, children, className = '' }) {
   return (
@@ -21,7 +22,7 @@ export default function FilterPanel({
   selectedYears, setSelectedYears, allMonths, setAllMonths,
   month, setMonth, connect,
   f, change, setDateRange, applyDateRange,
-  groups, rows,
+  groups, rows, resultCount, savedOnly, onClearSaved,
 }) {
   const thisMonth = new Date().toISOString().slice(0, 7);
   return (
@@ -41,24 +42,24 @@ export default function FilterPanel({
           <ChevronDown size={16} className={open ? 'rotate' : ''} />
         </button>
         <div className="filter-panel-actions">
-          {STATIC && coverage && (
-            <span
-              className={`coverage-status ${coverage.hasCurrentMonth && coverage.status === 'complete' ? 'ok' : 'warn'}`}
-              role="status"
-              title={`ข้อมูลล่าสุด ${monthTH(coverage.latestMonth)}`}
-            >
-              <span className="tiny-dot" />
-              {coverage.hasCurrentMonth
-                ? `${monthTH(coverage.currentMonth)} · ${currentMonthCount.toLocaleString('th-TH')} ประกาศ`
-                : `ต้นทางยังไม่มีไฟล์เดือน ${monthTH(coverage.currentMonth)} • ล่าสุด ${monthTH(coverage.latestMonth)}`}
-            </span>
-          )}
+          <span className="coverage-status" role="status" aria-live="polite">
+            {loading ? 'กำลังโหลดข้อมูล…' : `ผลลัพธ์ ${resultCount.toLocaleString('th-TH')} ประกาศ จากข้อมูลที่โหลด ${rows.length.toLocaleString('th-TH')} รายการ`}
+          </span>
           <button type="button" className="filter-reset" onClick={onReset}>ล้างค่า</button>
         </div>
       </header>
 
-      {(f.q || filterCount > 0) && (
+      {(
         <div className="active-filters" aria-label="ตัวกรองที่ใช้">
+          <span className="filter-context">ช่วงข้อมูล: {STATIC && allMonths ? `${yearLabel(selectedYears)}${selectedYears === null ? '' : ' พ.ศ.'} · ทุกเดือน` : monthTH(month)}</span>
+          {f.group !== 'all' && <button type="button" onClick={() => change('group', 'all')}>{f.group === 'nacc' ? 'ป.ป.ช.' : 'แต่งตั้งบุคลากร'}<X size={12} /></button>}
+          {savedOnly && <button type="button" onClick={onClearSaved}>เฉพาะที่บันทึกไว้<X size={12} /></button>}
+          {f.exclude && <button type="button" onClick={() => change('exclude', '')}>ไม่รวม: {f.exclude}<X size={12} /></button>}
+          {f.agency && <button type="button" onClick={() => change('agency', '')}>หน่วยงาน: {f.agency}<X size={12} /></button>}
+          {f.ocr && <button type="button" onClick={() => change('ocr', false)}>มี OCR<X size={12} /></button>}
+          {f.scope !== 'all' && <button type="button" onClick={() => change('scope', 'all')}>ค้นใน: {f.scope === 'title' ? 'ชื่อประกาศ' : 'เนื้อหา OCR'}<X size={12} /></button>}
+          {f.match !== 'all' && <button type="button" onClick={() => change('match', 'all')}>{f.match === 'any' ? 'ตรงคำใดคำหนึ่ง (OR)' : 'ตรงทั้งวลี'}<X size={12} /></button>}
+          {f.sort !== 'newest' && <button type="button" onClick={() => change('sort', 'newest')}>เรียง: {f.sort === 'oldest' ? 'เก่าสุด' : 'ชื่อประกาศ'}<X size={12} /></button>}
           {f.q && <button type="button" onClick={() => change('q', '')}>คำค้น: {f.q}<X size={12} /></button>}
           {f.sub && <button type="button" onClick={() => change('sub', '')}>{f.sub}<X size={12} /></button>}
           {(f.from || f.to) && (
@@ -96,21 +97,10 @@ export default function FilterPanel({
                     }}
                   />
                 )}
-                <label className="filter-field filter-month">
-                  <span>เดือน (ค.ศ.)</span>
-                  <input
-                    aria-label="เดือนของฐานข้อมูล (ค.ศ.)"
-                    type="month"
-                    disabled={loading || (STATIC && allMonths)}
-                    value={month}
-                    onChange={e => {
-                      setMonth(e.target.value);
-                      if (e.target.value) setSelectedYears([e.target.value.slice(0, 4)]);
-                    }}
-                    min={dataInfo?.availableMonths?.[0]?.month || '1885-01'}
-                    max={thisMonth}
-                  />
-                </label>
+                <div className="filter-field filter-month">
+                  <span>เดือน / ปี พ.ศ.</span>
+                  <ThaiDatePicker label="เดือนของฐานข้อมูล" monthOnly disabled={loading || (STATIC && allMonths)} value={month} min={dataInfo?.availableMonths?.[0]?.month || '1885-01'} max={thisMonth} onChange={value => { setMonth(value); if (value) setSelectedYears([value.slice(0, 4)]); }} />
+                </div>
               </div>
               {STATIC && (
                 <label className="filter-check">
@@ -127,8 +117,8 @@ export default function FilterPanel({
                 </label>
               )}
               <div className="filter-inline filter-dates">
-                <label className="filter-field">ตั้งแต่วันที่<input type="date" value={f.from} max={f.to || undefined} onChange={e => change('from', e.target.value)} /></label>
-                <label className="filter-field">ถึงวันที่<input type="date" value={f.to} min={f.from || undefined} onChange={e => change('to', e.target.value)} /></label>
+                <div className="filter-field">ตั้งแต่วันที่<ThaiDatePicker label="ตั้งแต่วันที่" value={f.from} max={f.to || undefined} onChange={value => change('from', value)} /></div>
+                <div className="filter-field">ถึงวันที่<ThaiDatePicker label="ถึงวันที่" value={f.to} min={f.from || undefined} onChange={value => change('to', value)} /></div>
               </div>
               <div className="date-shortcuts">
                 <button type="button" onClick={() => {
