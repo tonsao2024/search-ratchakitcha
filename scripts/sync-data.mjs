@@ -13,6 +13,7 @@ import {
   coverageSummary,
   documentKeys,
   matchOcrRow,
+  retryDelayMs,
 } from '../src/sync-integrity.js';
 
 process.on('uncaughtException', error => {
@@ -30,21 +31,49 @@ const referenceMonth = process.env.DATA_MONTH && /^\d{4}-(0[1-9]|1[0-2])$/.test(
   : monthKey(new Date());
 const currentYear = Number(referenceMonth.slice(0, 4));
 const ocrYears = [currentYear - 1, currentYear];
+const maxAttempts = Math.max(1, Number(process.env.HF_MAX_ATTEMPTS || 8));
+const requestIntervalMs = Math.max(0, Number(process.env.HF_REQUEST_INTERVAL_MS || 200));
+const requestConcurrency = Math.max(1, Number(process.env.HF_CONCURRENCY || 3));
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function get(url) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(300000) });
-      if (!response.ok) throw Error(`HTTP ${response.status}: ${url}`);
-      return response;
-    } catch (error) {
-      if (attempt === 4) throw error;
-      await new Promise(resolve => setTimeout(resolve, 5000 * (attempt + 1)));
-    }
-  }
+// Hugging Face rate-limits a cold historical import. Space requests globally and honour Retry-After.
+let requestQueue = Promise.resolve();
+let lastRequestAt = 0;
+async function rateLimitedFetch(url, init) {
+  const task = requestQueue.then(async () => {
+    const wait = requestIntervalMs - (Date.now() - lastRequestAt);
+    if (wait > 0) await sleep(wait);
+    lastRequestAt = Date.now();
+    return fetch(url, init);
+  });
+  requestQueue = task.then(() => {}, () => {});
+  return task;
 }
 
-async function pool(items, fn, concurrency = 4) {
+async function get(url) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let response;
+    try {
+      response = await rateLimitedFetch(url, { signal: AbortSignal.timeout(300000) });
+    } catch (error) {
+      if (attempt === maxAttempts - 1) throw error;
+      const delay = retryDelayMs(null, attempt) + Math.random() * 250;
+      console.warn(`::warning::Network error for ${url}; retry ${attempt + 1}/${maxAttempts} in ${Math.round(delay / 1000)}s: ${error.message}`);
+      await sleep(delay);
+      continue;
+    }
+    if (response.ok) return response;
+    const error = Error(`HTTP ${response.status}: ${url}`);
+    const nonRetryable = [400, 401, 403, 404, 410, 422].includes(response.status);
+    if (nonRetryable || attempt === maxAttempts - 1) throw error;
+    const delay = retryDelayMs(response.headers.get('retry-after'), attempt) + Math.random() * 250;
+    console.warn(`::warning::HTTP ${response.status} for ${url}; retry ${attempt + 1}/${maxAttempts} in ${Math.round(delay / 1000)}s`);
+    await sleep(delay);
+  }
+  throw Error(`Request failed: ${url}`);
+}
+
+async function pool(items, fn, concurrency = requestConcurrency) {
   let next = 0;
   const results = [];
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {

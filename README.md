@@ -68,7 +68,8 @@ The previous deployment stopped at `2026-09` because its workflow was pinned to 
 - the manifest revision, `currentMonth`, and all months from January through the required month of the current year;
 - each monthly file's raw byte length and JSONL line count against the upstream tree entry (LFS sizes included), plus row, OCR, duplicate-ID and revision consistency;
 - current-month OCR availability when upstream publishes that OCR month;
-- every annual bundle's row and scanned totals against its monthly files.
+- every annual bundle's row and scanned totals against its monthly files;
+- Hugging Face `429`/`5xx`/network errors with `Retry-After`, exponential backoff and a global request throttle, so a cold historical import cannot silently omit a month. Verified monthly results are cached by upstream OID and the partial cache is persisted even when a later request fails, so the next run resumes instead of restarting.
 
 `coverage` in `public/data/manifest.json` exposes the result to the UI. Monthly imports are cached only when their byte checks and OCR join succeed; a cached result never receives a fabricated download timestamp.
 

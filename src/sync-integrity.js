@@ -18,6 +18,20 @@ export function sourceBytes(file) {
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+export function retryDelayMs(retryAfter, attempt, now = Date.now()) {
+  let suggested = 0;
+  if (typeof retryAfter === 'string' && retryAfter.trim()) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) suggested = Math.max(0, seconds) * 1000;
+    else {
+      const date = Date.parse(retryAfter);
+      if (!Number.isNaN(date)) suggested = Math.max(0, date - now);
+    }
+  }
+  const backoff = 500 * 2 ** Math.max(0, attempt);
+  return Math.min(120000, Math.max(backoff, suggested));
+}
+
 // Verify the raw bytes, not just parsed lines: a truncated JSONL can still end on a valid line.
 export function assertCompleteSource(buffer, file, label = 'source') {
   const byteLength = buffer instanceof ArrayBuffer ? buffer.byteLength : buffer?.byteLength;

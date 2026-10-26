@@ -9,6 +9,7 @@ import {
   coverageSummary,
   documentKeys,
   matchOcrRow,
+  retryDelayMs,
 } from '../src/sync-integrity.js';
 
 const bytes = text => new TextEncoder().encode(text);
@@ -20,6 +21,15 @@ test('required months include every month from January through the current month
   assert.deepEqual(requiredMonths('2026-01'), ['2026-01']);
 });
 
+test('rate-limit backoff honours Retry-After seconds and HTTP dates', () => {
+  assert.equal(retryDelayMs(null, 0), 500);
+  assert.equal(retryDelayMs(null, 3), 4000);
+  assert.equal(retryDelayMs('30', 0), 30000);
+  const now = Date.parse('2026-10-26T00:00:00Z');
+  assert.equal(retryDelayMs('Mon, 26 Oct 2026 00:00:10 GMT', 0, now), 10000);
+  assert.equal(retryDelayMs('not-a-date', 2), 2000);
+  assert.equal(retryDelayMs('999', 0), 120000);
+});
 test('source size uses the real LFS size, not the pointer size', () => {
   assert.equal(sourceBytes({ size: 133, lfs: { size: 20024724 } }), 20024724);
   assert.equal(sourceBytes({ size: 1494103 }), 1494103);

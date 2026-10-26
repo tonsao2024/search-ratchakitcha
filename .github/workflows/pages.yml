@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       # Checkout the triggering ref. Scheduled runs use the default branch; pushes use the pushed branch.
       - uses: actions/checkout@v4
@@ -32,15 +32,25 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Check desktop and mobile readability
         run: npm run test:readability
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: .cache/month-import
-          key: historical-v5-${{ github.run_id }}
+          key: historical-v5-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: historical-v5-
       - name: Download real metadata and OCR from Hugging Face
         run: npm run sync:data
         env:
           DATA_MONTH: ${{ github.event.inputs.data_month || '' }}
+          HF_REQUEST_INTERVAL_MS: '250'
+          HF_CONCURRENCY: '2'
+          HF_MAX_ATTEMPTS: '10'
+      - name: Persist verified monthly cache even if a later upstream file fails
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/month-import
+          key: historical-v5-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Verify current-month coverage and published file integrity
         run: npm run verify:data
         env:
