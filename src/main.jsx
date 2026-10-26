@@ -11,7 +11,7 @@ import { loadPublishedData } from './static-data';
 import Pagination from './Pagination';
 import OcrReader from './OcrReader';
 import FilterPanel from './FilterPanel';
-import { groups, filterRows, DATASET } from './search';
+import { groups, filterRows, classify, DATASET } from './search';
 import './style.css';
 import './filters.css';
 
@@ -112,7 +112,7 @@ function App() {
     notify('กำลังโหลดข้อมูลจริง…', 'loading');
     const apply = data => {
       if (id !== request.current) return;
-      setRows(data.rows);
+      setRows(data.rows.map(row => ({ ...row, ...classify(row.title) })).filter(row => row.group !== 'other'));
       setDataInfo(data);
       setConnection(data.connectedAt);
       setConnectionError(!!data.stale || !!data.fallbackTo);
@@ -330,6 +330,9 @@ function App() {
           applyDateRange={applyDateRange}
           groups={groups}
           rows={rows}
+          resultCount={filtered.length}
+          savedOnly={savedOnly}
+          onClearSaved={() => { setSavedOnly(false); setPage(1); }}
         />
 
         <section className="workspace" id="results">

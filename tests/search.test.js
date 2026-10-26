@@ -13,3 +13,10 @@ test('Prime Minister office issuer does not make civil service appointment polit
  assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง แต่งตั้งข้าราชการการเมือง').sub,'ข้าราชการการเมือง');
  assert.equal(classify('ประกาศ แต่งตั้งรัฐมนตรี').sub,'ข้าราชการการเมือง');
 });
+test('classification prioritizes the issuing heading and document kind over topic mentions',()=>{
+ assert.equal(classify('ประกาศสำนักงาน ป.ป.ช. เรื่อง หลักเกณฑ์ตามระเบียบการแต่งตั้ง').sub,'สำนักงาน ป.ป.ช.');
+ assert.equal(classify('ระเบียบคณะกรรมการ ป.ป.ช. ว่าด้วยการแต่งตั้งกรรมการ').sub,'ระเบียบและข้อบังคับ');
+ assert.equal(classify('ประกาศกระทรวงอื่น เรื่อง ระเบียบสำนักงาน ป.ป.ช.').group,'other');
+ assert.equal(classify('ระเบียบกระทรวงการคลัง ว่าด้วยการแต่งตั้งข้าราชการ').group,'other');
+ assert.equal(classify('ประกาศคณะกรรมการอื่น เรื่อง แต่งตั้งข้าราชการพลเรือน').sub,'ข้าราชการพลเรือน');
+});
