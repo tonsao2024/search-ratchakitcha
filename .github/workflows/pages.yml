@@ -1,0 +1,84 @@
+name: Sync real data and deploy Pages
+on:
+  push:
+    branches: [main, arena/e5ab8751-search-ratchakitcha]
+  workflow_dispatch:
+    inputs:
+      data_month:
+        description: 'Required month YYYY-MM (defaults to the current UTC month)'
+        required: false
+        type: string
+  schedule:
+    - cron: '15 23 * * *' # 06:15 Asia/Bangkok; active once this workflow is on the default branch
+permissions:
+  contents: read
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # Checkout the triggering ref. Scheduled runs use the default branch; pushes use the pushed branch.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Install browser for readability checks
+        run: npx playwright install --with-deps chromium
+      - name: Check desktop and mobile readability
+        run: npm run test:readability
+      - uses: actions/cache/restore@v4
+        with:
+          path: .cache/month-import
+          key: historical-v5-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: historical-v5-
+      - name: Download real metadata and OCR from Hugging Face
+        run: npm run sync:data
+        env:
+          DATA_MONTH: ${{ github.event.inputs.data_month || '' }}
+          HF_REQUEST_INTERVAL_MS: '250'
+          HF_CONCURRENCY: '2'
+          HF_MAX_ATTEMPTS: '10'
+      - name: Persist verified monthly cache even if a later upstream file fails
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/month-import
+          key: historical-v5-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Verify current-month coverage and published file integrity
+        run: npm run verify:data
+        env:
+          DATA_MONTH: ${{ github.event.inputs.data_month || '' }}
+      - name: Build static Pages website
+        run: npm run build
+        env:
+          VITE_STATIC_DATA: 'true'
+          VITE_BASE_PATH: /search-ratchakitcha/
+      - name: Save verified data and website for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-data-site
+          path: dist
+          retention-days: 7
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
