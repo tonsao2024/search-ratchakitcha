@@ -109,6 +109,10 @@ Document details now include an expandable reading pane, three font choices (Not
 
 The reader starts with the submitted search query. AND/OR modes highlight all occurrences of each term; exact mode highlights the complete phrase. Highlighting is case-insensitive, literal (regex symbols escaped) and rendered as React text, never HTML. Every hit is highlighted; the current hit has a stronger border/color and a position counter. Previous/next buttons and Enter / Shift+Enter navigate and scroll only the OCR pane. The local OCR search field can be edited or cleared without changing result filters. Empty OCR and unmatched queries are explicitly identified. The dialog traps keyboard focus, supports Escape, restores focus and prevents background scrolling while open.
 
+## Compact grouped filters
+
+All filter controls now live in one collapsible panel below the search box, split into **ช่วงข้อมูล**, **ประเภทประกาศ**, and **คำค้นและเงื่อนไข**. Active filters and current-month coverage appear in the panel header. Marketing copy, duplicated hints, the sidebar data card, suggestions and the bottom callout were removed; source attribution and the legal-original warning remain in the compact footer/help dialog. The panel starts open on desktop and collapsed on small screens, but its coverage badge stays visible.
+
 ## Multi-year selection
 
 The year picker now supports one year, any subset of non-consecutive years, or **all available years**. Open “เลือกปีประกาศ”, tick the desired years (searchable by BE or CE), and press “ใช้ปีที่เลือก”. Draft choices do not issue network requests until applied; empty selections are blocked and Cancel leaves the active selection unchanged. Existing keyword/category/date/sort controls remain in place. Date ranges now intersect the chosen years; choose all years to search a date range without year restrictions. A specific month can be chosen only in single-year mode.

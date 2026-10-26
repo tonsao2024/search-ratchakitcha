@@ -13,6 +13,8 @@ for(const width of [390,1280])test(`Historical years, cross-year dates, and pagi
   return route.fulfill({json:{rows:files[month],complete:true,revision:'test-revision',scanned:files[month].length}});
  });
  await page.goto('/',{waitUntil:'domcontentloaded'});
+ const filterToggle=page.getByRole('button',{name:'ตัวกรอง',exact:true});
+ if(await filterToggle.getAttribute('aria-expanded')==='false')await filterToggle.click();
  const pager=page.getByRole('navigation',{name:'การเปลี่ยนหน้าผลลัพธ์'});
  await expect(pager).toContainText('แสดง 1–20 จาก 61 รายการ');
  await pager.getByRole('button',{name:'หน้าถัดไป',exact:true}).click();

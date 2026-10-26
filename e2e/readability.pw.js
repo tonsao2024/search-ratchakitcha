@@ -8,6 +8,8 @@ for(const width of [360,390,768,1280]){
   await page.route('**/api/search?*',route=>route.fulfill({json:{rows:snapshot.records.map(normalizeRecord),month:'2026-09',complete:true,stale:false,connectedAt:new Date().toISOString()}}));
   await page.goto('/',{waitUntil:'domcontentloaded'});
   await expect(page.locator('.document-title').first()).toBeVisible();
+  const filterToggle=page.getByRole('button',{name:'ตัวกรอง',exact:true});
+  if(await filterToggle.getAttribute('aria-expanded')==='false')await filterToggle.click();
   const size=selector=>page.locator(selector).first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
   expect(await size('.document-title')).toBeGreaterThanOrEqual(18);
   expect(await size('.card-meta')).toBeGreaterThanOrEqual(15);
@@ -17,8 +19,6 @@ for(const width of [360,390,768,1280]){
    const layout=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).slice(0,12).map(el=>({tag:el.tagName,cls:el.className,right:el.getBoundingClientRect().right}))}));
    expect(layout.scroll,JSON.stringify(layout)).toBeLessThanOrEqual(layout.width+1);
   };
-  await noOverflow();
-  await page.getByRole('button',{name:'ค้นหาขั้นสูง'}).click();
   await noOverflow();
   await page.getByRole('button',{name:'มุมมองตาราง'}).click();
   expect(await size('.document-title')).toBeGreaterThanOrEqual(18);
