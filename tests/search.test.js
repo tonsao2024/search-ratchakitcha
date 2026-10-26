@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {classify,filterRows} from '../src/search.js';
+const base={q:'',group:'all',sub:'',from:'',to:'',scope:'all',match:'all',exclude:'',agency:'',ocr:false,sort:'newest'};
+const rows=[{id:1,title:'ประกาศ แต่งตั้งข้าราชการ',text:'นายสมชาย ทำงาน โปร่งใส',date:'2026-01-01',issuer:'รัฐบาล',...classify('แต่งตั้งข้าราชการ')},{id:2,title:'ระเบียบคณะกรรมการ ป.ป.ช.',text:'ตรวจสอบ โปร่งใส',date:'2026-02-01',issuer:'ป.ป.ช.',...classify('ระเบียบคณะกรรมการ ป.ป.ช.')},{id:3,title:'ประกาศ แต่งตั้งทหาร',text:'',date:'2025-12-01',issuer:'กลาโหม',...classify('แต่งตั้งทหาร')}];
+test('classification recognizes NACC and appointments, rejects unrelated',()=>{assert.equal(classify('ข่าวทั่วไป').group,'other');assert.equal(rows[0].sub,'ข้าราชการพลเรือน');assert.equal(rows[1].sub,'ระเบียบและข้อบังคับ');assert.equal(rows[2].sub,'ทหารและตำรวจ');assert.equal(classify('ประกาศสำนักงานป้องกันและปราบปรามการทุจริตแห่งชาติ').group,'nacc')});
+test('date bounds are inclusive and sorting works',()=>{assert.deepEqual(filterRows(rows,{...base,from:'2026-01-01',to:'2026-02-01'}).map(r=>r.id),[2,1]);assert.equal(filterRows(rows,{...base,sort:'oldest'})[0].id,3)});
+test('OCR-only search cannot match titles',()=>{assert.equal(filterRows(rows,{...base,q:'แต่งตั้ง',scope:'text'}).length,0);assert.equal(filterRows(rows,{...base,q:'สมชาย',scope:'text'}).length,1)});
+test('AND OR exact and exclusion',()=>{assert.equal(filterRows(rows,{...base,q:'สมชาย โปร่งใส'}).length,1);assert.equal(filterRows(rows,{...base,q:'สมชาย ตรวจสอบ',match:'any'}).length,2);assert.equal(filterRows(rows,{...base,q:'สมชาย โปร่งใส',match:'exact'}).length,0);assert.equal(filterRows(rows,{...base,q:'โปร่งใส',exclude:'ตรวจสอบ'}).length,1)});
+test('combine group, agency, OCR and subtype',()=>{assert.deepEqual(filterRows(rows,{...base,group:'appointments',agency:'รัฐบาล',ocr:true,sub:'ข้าราชการพลเรือน'}).map(r=>r.id),[1])});
+test('Prime Minister office issuer does not make civil service appointment political',()=>{
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง แต่งตั้งข้าราชการพลเรือนสามัญ').sub,'ข้าราชการพลเรือน');
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง แต่งตั้งข้าราชการการเมือง').sub,'ข้าราชการการเมือง');
+ assert.equal(classify('ประกาศ แต่งตั้งรัฐมนตรี').sub,'ข้าราชการการเมือง');
+});
