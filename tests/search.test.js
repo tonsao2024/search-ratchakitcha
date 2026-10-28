@@ -21,6 +21,15 @@ test('classification prioritizes the issuing heading and document kind over topi
  assert.equal(classify('ประกาศคณะกรรมการอื่น เรื่อง แต่งตั้งข้าราชการพลเรือน').sub,'ข้าราชการพลเรือน');
 });
 
+test('royal military rank appointments from the Prime Minister Office are classified as appointments',()=>{
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง พระราชทานยศทหารชั้นนายพล').group,'appointments');
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง พระราชทานยศทหารชั้นนายพล').sub,'ทหารและตำรวจ');
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง พระราชทานยศทหารต่ำกว่าชั้นนายพล').group,'appointments');
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง พระราชทานยศทหารต่ำกว่าชั้นนายพล').sub,'ทหารและตำรวจ');
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง พระราชทานยศทหารเป็นกรณีพิเศษ').group,'appointments');
+ assert.equal(classify('ประกาศสำนักนายกรัฐมนตรี เรื่อง พระราชทานยศทหารเป็นกรณีพิเศษ').sub,'ทหารและตำรวจ');
+});
+
 test('removal notices are classified from the subject wording',()=>{
  const removal=title=>classify(title);
  assert.equal(removal('ประกาศสำนักนายกรัฐมนตรี เรื่อง ให้ข้าราชการพลเรือนพ้นจากตำแหน่ง').group,'removals');
