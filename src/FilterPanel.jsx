@@ -112,7 +112,7 @@ export default function FilterPanel({
                   <input
                     type="checkbox"
                     checked={allMonths}
-                    disabled={loading || selectedYears === null || selectedYears.length !== 1}
+                    disabled={loading || selectedYears === null}
                     onChange={e => {
                       setAllMonths(e.target.checked);
                       connect('', true, month, e.target.checked);

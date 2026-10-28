@@ -6,6 +6,7 @@ export default defineConfig({
   {name:'readability',testMatch:'**/readability.pw.js',use:{baseURL:'http://127.0.0.1:4180'}},
   {name:'ocr-reader',testMatch:'**/ocr-reader.pw.js',use:{baseURL:'http://127.0.0.1:4181'}},
   {name:'historical-search',testMatch:'**/history.pw.js',use:{baseURL:'http://127.0.0.1:4181'}},
+  {name:'ocr-on-demand',testMatch:'**/ocr-on-demand.pw.js',use:{baseURL:'http://127.0.0.1:4180'}},
  ],
  webServer:[
   {command:'npx vite --host 0.0.0.0 --port 4180 --strictPort',url:'http://127.0.0.1:4180',reuseExistingServer:!process.env.CI},

@@ -58,6 +58,24 @@ Metadata ไม่มีเนื้อหา PDF จึงไม่เติม
 
 ตัวกรองวัน/หมวดย่อย/AND/OR/วลี/NOT/หน่วยงาน และ sorting ใช้กับ **ข้อมูลที่โหลดแล้ว** ไม่ใช่ฐานทุกปี การจำแนกหมวดเป็นกฎคำสำคัญ ไม่ใช่ taxonomy ที่รับรองจากต้นทาง สำหรับค้นทั้งฐานควรนำเข้า metadata/OCR และทำ Thai search index ฝั่ง server
 
+### OCR ในเครื่องสำหรับไฟล์ที่ยังไม่มีข้อความ (local OCR pipeline)
+
+เอกสารที่บริการ OCR ต้นทางยังไม่มีข้อความ (ส่วนใหญ่เป็นปีเก่าที่เป็น PDF สแกน) ระบบมี pipeline ฝั่ง server สร้างข้อความเองได้ ด้วย MuPDF (อ่าน text layer ที่มีอยู่ในตัวไฟล์) และ Tesseract.js (OCR ภาพสำหรับไฟล์ที่สแกนล้วน) ผลถูกเก็บเป็น cache ใน `.local-ocr/<YYYY-MM>.jsonl` (ถูก ignore จาก git)
+
+โหมดการใช้งาน
+
+- **ปุ่ม “OCR ฉบับนี้” ในหน้ารายละเอียด** (โหมด dev/API เท่านั้น) — ดาวน์โหลด PDF ต้นฉบับของประกาศนั้นๆ สร้างข้อความ และแสดงใน ผู้อ่านทันที พร้อม badge แหล่งที่มาบนการ์ด (“ข้อความในไฟล์” = text layer ของตัวไฟล์ / “OCR ในเครื่อง” = ผล OCR) API: `POST /api/ocr-one` แล้ว poll `GET /api/ocr-one/:jobId`
+- **การค้นเนื้อหา** — `/api/ocr-search` รวมผลจาก local cache เข้ากับผลจาก Dataset Viewer (ไม่ซ้ำกัน ตาม ID) ทำให้ค้นเจอประกาศที่ยังไม่อยู่ในฐาน OCR ต้นทาง แม้ต้นทางจะเชื่อมต่อไม่ได้ ผลจาก local cache ก็ยังตอบได้
+- **การซิงก์ข้อมูล** — `scripts/sync-data.mjs` รวมข้อความจาก `.local-ocr/` เข้าไฟล์เดือนก่อนคำนวณ `ocrCount`/manifest (นับเป็น `localOcrCount` ด้วย) ดังนั้นข้อความที่สร้างในเครื่องจะตามไปติดในการ deploy ต่อไปด้วย
+
+สคริปต์ (รันบนเครื่อง/CI ที่เข้าถึงอินเทอร์เน็ตได้)
+
+- `npm run ocr:coverage -- --year 2024` — ตรวจเดือนละเดือนว่ามี OCR ต้นทางครบแค่ไหน (เก็บรายงานที่ `.ocr-coverage/<year>.json`)
+- `npm run ocr:backfill -- --year 2024` — สร้างข้อความให้ไฟล์ที่ยังขาด ตามลำดับเดือนละครั้ง เก็บ state ไว้ที่ `.local-ocr/state.json` รันซ้ำได้ (resume) ใช้ `--probe-only` เพื่อตรวจว่าไฟล์มี text layer ก่อนตัดสินใจ OCR
+- `--limit N` ใช้ได้ทั้งคู่เพื่อจำกัดจำนวนต่อเดือน
+
+ข้อจำกัด: OCR ไทยของ Tesseract อาจคลาดเคลื่อน คำค้นหาที่ยาว/หลายคำอาจจับคู่ไม่ได้เสมอ (ตัวแบ่งคำไม่เสถียร) จึงควรถอดความผลพร้อมตรวจ PDF ต้นฉบับเสมอ และข้อความจาก pipeline นี้ไม่ไปแทนข้อความของต้นทาง (ถ้ามีต้นทางอยู่แล้ว ใช้ต้นทางก่อนเสมอ)
+
 ## ที่มาและสัญญาอนุญาต
 
 [Open Law Data Thailand · soc-ratchakitcha](https://huggingface.co/datasets/open-law-data-thailand/soc-ratchakitcha) ข้อมูลจากสำนักเลขาธิการคณะรัฐมนตรี · CC BY 4.0
@@ -74,7 +92,7 @@ The Pages build uses **static JSON generated from the actual Hugging Face datase
 2. Downloads each complete monthly metadata file and filters appointments / NACC notices.
 3. Streams the matching monthly `ocr/openlawdata-ocr` file and joins valid OCR text by document ID / PDF filename. Missing OCR is reported separately; no text is fabricated.
 4. Writes `public/data/YYYY-MM.json` and a manifest recording revision, counts, OCR coverage, and real sync timestamps.
-5. CI verifies every published monthly file and annual bundle against the pinned revision, then builds with `VITE_STATIC_DATA=true` and `VITE_BASE_PATH=/search-ratchakitcha/`. Pages loads only project-relative static JSON; all filters and OCR search operate on the imported records. By default it loads the **current month first**. If upstream has not published that month yet, it falls back to the latest published month and says so explicitly. The “every month of the selected year” checkbox and year picker remain available for broader browsing.
+5. CI verifies every published monthly file and annual bundle against the pinned revision, then builds with `VITE_STATIC_DATA=true` and `VITE_BASE_PATH=/search-ratchakitcha/`. Pages loads only project-relative static JSON; all filters and OCR search operate on the imported records. By default it opens with a **rolling window of the ten most recent calendar years** (current year included), every month of those years. Years upstream has not published yet are clamped out of the load instead of failing it; the year/month controls then show exactly what was loaded, the month control lands on the last published month, and a missing current month is reported explicitly. If the whole window has no data, it falls back to the latest published month and says so. The “every month of the selected year” checkbox and year picker remain available for broader browsing (and the checkbox also switches back to a single selected month).
 
 Generated data lives in Actions/Pages artifacts, not Git. A metadata fetch failure, a missing current-year month, a truncated file, a row-count mismatch, or unavailable current-month OCR prevents publication; the previously deployed site stays intact and the UI marks it stale. Older-year OCR is intentionally not imported, and partial OCR coverage is reported rather than fabricated. The refresh button reloads the latest published dataset, **not** a new Actions run.
 

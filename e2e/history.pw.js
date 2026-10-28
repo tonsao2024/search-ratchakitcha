@@ -16,11 +16,12 @@ for(const width of [390,1280])test(`Historical years, cross-year dates, and pagi
  const filterToggle=page.getByRole('button',{name:'ตัวกรอง',exact:true});
  if(await filterToggle.getAttribute('aria-expanded')==='false')await filterToggle.click();
  const pager=page.getByRole('navigation',{name:'การเปลี่ยนหน้าผลลัพธ์'});
- await expect(pager).toContainText('แสดง 1–20 จาก 61 รายการ');
+ // The default window spans the published years inside the ten-year range (2025-09 + 2026-09 here).
+ await expect(pager).toContainText('แสดง 1–20 จาก 92 รายการ');
  await pager.getByRole('button',{name:'หน้าถัดไป',exact:true}).click();
  await expect(pager).toContainText('แสดง 21–40');
  await pager.getByRole('button',{name:'หน้าสุดท้าย',exact:true}).click();
- await expect(pager).toContainText('แสดง 61–61');
+ await expect(pager).toContainText('แสดง 81–92');
  await page.getByLabel('เลขหน้าที่ต้องการ').fill('2');await pager.getByRole('button',{name:'ไป',exact:true}).click();
  await expect(pager).toContainText('แสดง 21–40');
  await page.getByLabel('จำนวนรายการต่อหน้า').selectOption('50');
@@ -73,7 +74,7 @@ for(const width of [390,1280])test(`Historical years, cross-year dates, and pagi
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
 
-test('Current month falls back to the latest published month with a visible warning',async({page})=>{
+test('default ten-year window loads the latest published data and flags the missing current month',async({page})=>{
  await page.clock.setFixedTime(new Date('2026-10-26T00:00:00Z'));
  await page.setViewportSize({width:1280,height:900});
  const latest=rows('2026',2);
@@ -83,9 +84,13 @@ test('Current month falls back to the latest published month with a visible warn
   return route.fulfill({json:{revision:'test-revision',complete:true,rows:latest,scanned:2}});
  });
  await page.goto('/',{waitUntil:'domcontentloaded'});
- await expect(page.locator('.coverage-status')).toContainText('ต้นทางยังไม่มีไฟล์เดือน');
- // ThaiDatePicker แยกเดือน/ปีเป็น select (ค่าปีเป็น ค.ศ. แสดงผลเป็น พ.ศ.)
+ // The default ten-year window clamps to the published 2026-09 data instead of failing.
+ await expect(page.locator('.result-card')).toHaveCount(2);
+ await expect(page.locator('.coverage-status')).toContainText('ผลลัพธ์ 2 ประกาศ');
+ // The year chip shows the loaded window; the month control stays on the last published month (ค่าปีเป็น ค.ศ. แสดงผลเป็น พ.ศ.)
+ await expect(page.locator('.filter-context')).toContainText('2569 พ.ศ. · ทุกเดือน');
  await expect(page.getByLabel('เดือนของฐานข้อมูล เดือน',{exact:true})).toHaveValue('09');
  await expect(page.getByLabel('เดือนของฐานข้อมูล ปี พ.ศ.',{exact:true})).toHaveValue('2026');
- await expect(page.locator('.result-card')).toHaveCount(2);
+ // The unpublished current month is reported instead of being silently hidden.
+ await expect(page.locator('.toast.error',{hasText:'ต้นทางยังไม่มีไฟล์เดือน'})).toBeVisible();
 });

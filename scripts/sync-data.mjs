@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import { TransformStream } from 'node:stream/web';
 import { parseMonthly } from '../src/dataset.js';
 import { DATASET } from '../src/search.js';
+import { mergeLocalOcr, parseOcrJsonl } from '../src/ocr.js';
 import {
   monthKey,
   requiredMonths,
@@ -26,6 +27,20 @@ process.on('unhandledRejection', error => {
 });
 
 const repo = 'open-law-data-thailand/soc-ratchakitcha';
+const localOcrDir = process.env.LOCAL_OCR_DIR || '.local-ocr';
+
+// Local text extracted by scripts/ocr-pipeline.mjs for documents that upstream
+// OCR does not cover. A corrupt local cache fails the build loudly; a missing
+// file simply means there is no local text for that month.
+async function loadLocalOcr(month) {
+  try {
+    return parseOcrJsonl(await readFile(`${localOcrDir}/${month}.jsonl`, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw Error(`${month}: local OCR cache is unreadable: ${error.message}`);
+  }
+}
+
 const referenceMonth = process.env.DATA_MONTH && /^\d{4}-(0[1-9]|1[0-2])$/.test(process.env.DATA_MONTH)
   ? process.env.DATA_MONTH
   : monthKey(new Date());
@@ -273,6 +288,9 @@ const entries = await pool(files, async file => {
   }
 
   const connectedAt = result.downloadedAt || new Date().toISOString();
+  const localOcr = await loadLocalOcr(month);
+  if (localOcr.length) result.rows = mergeLocalOcr(result.rows, localOcr);
+  const localOcrCount = result.rows.filter(row => row.textSource && row.textSource !== 'upstream').length;
   const ocrCount = result.rows.filter(row => row.text).length;
   const data = {
     ...result,
@@ -302,6 +320,7 @@ const entries = await pool(files, async file => {
     nacc: data.rows.filter(row => row.group === 'nacc').length,
     ocrCount,
     ocrStatus: data.ocrStatus,
+    localOcrCount,
     expectedBytes: data.expectedBytes,
     byteLength: data.byteLength,
     lineCount: data.lineCount,
@@ -320,6 +339,7 @@ manifest.nacc = entries.reduce((sum, month) => sum + month.nacc, 0);
 manifest.syncedAt = new Date().toISOString();
 manifest.total = entries.reduce((sum, month) => sum + month.count, 0);
 manifest.ocrCount = entries.reduce((sum, month) => sum + month.ocrCount, 0);
+manifest.localOcrCount = entries.reduce((sum, month) => sum + (month.localOcrCount || 0), 0);
 manifest.metadataBytes = entries.reduce((sum, month) => sum + (month.byteLength || 0), 0);
 manifest.metadataLines = entries.reduce((sum, month) => sum + (month.lineCount || 0), 0);
 manifest.coverage = coverageSummary(entries, referenceMonth);
@@ -360,8 +380,8 @@ await writeFile(manifestTemp, JSON.stringify(manifest, null, 2));
 await rename(manifestTemp, 'public/data/manifest.json');
 await writeFile('public/.nojekyll', '');
 const current = manifest.coverage;
-const summary = `${manifest.total} announcements (${manifest.appointments} appointments, ${manifest.removals} removals); ${manifest.nacc} NACC; ${manifest.ocrCount} OCR texts; ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; ${requiredMonths(referenceMonth).length} current-year months verified; ${current.currentMonthCount} records in ${referenceMonth}; OCR ${current.ocrStatus}; revision ${revision}`;
+const summary = `${manifest.total} announcements (${manifest.appointments} appointments, ${manifest.removals} removals); ${manifest.nacc} NACC; ${manifest.ocrCount} OCR texts (${manifest.localOcrCount} from the local pipeline); ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; ${requiredMonths(referenceMonth).length} current-year months verified; ${current.currentMonthCount} records in ${referenceMonth}; OCR ${current.ocrStatus}; revision ${revision}`;
 console.log(`::notice title=Verified real dataset::${summary}`);
 if (process.env.GITHUB_STEP_SUMMARY) {
-  await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Actual historical dataset\n${summary}\n\nMetadata bytes/lines are checked against the pinned upstream tree. OCR imported for ${ocrYears.join('–')}; older metadata remains title-searchable.\n`);
+  await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Actual historical dataset\n${summary}\n\nMetadata bytes/lines are checked against the pinned upstream tree. Upstream OCR imported for ${ocrYears.join('–')}; the local pipeline (scripts/ocr-pipeline.mjs) adds text for documents it covers. Older metadata remains title-searchable.\n`);
 }

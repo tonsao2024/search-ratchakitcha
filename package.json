@@ -10,13 +10,17 @@
     "start": "NODE_ENV=production node server.js",
     "sync:data": "node scripts/sync-data.mjs",
     "verify:data": "node scripts/verify-data.mjs",
+    "ocr:coverage": "node scripts/ocr-coverage.mjs",
+    "ocr:backfill": "node scripts/ocr-pipeline.mjs",
     "test:readability": "playwright test"
   },
   "dependencies": {
     "express": "^5.1.0",
     "lucide-react": "^0.468.0",
+    "mupdf": "^1.28.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

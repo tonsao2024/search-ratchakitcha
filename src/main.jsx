@@ -16,6 +16,15 @@ import './style.css';
 import './filters.css';
 
 const STATIC = import.meta.env.VITE_STATIC_DATA === 'true';
+// The published build opens with a rolling window of the ten most recent
+// calendar years (current year included) so a decade of notices is searched
+// by default instead of the current month alone.
+const DEFAULT_YEAR_SPAN = 10;
+const defaultYears = () => {
+  if (!STATIC) return [String(new Date().getFullYear())];
+  const current = new Date().getFullYear();
+  return Array.from({ length: DEFAULT_YEAR_SPAN }, (_, offset) => String(current - offset));
+};
 const defaults = {
   q: '', group: 'all', sub: '', from: '', to: '', scope: 'all',
   match: 'all', exclude: '', agency: '', ocr: false, sort: 'newest',
@@ -29,8 +38,8 @@ const monthTH = m => m
 
 function App() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
-  const [allMonths, setAllMonths] = useState(false);
-  const [selectedYears, setSelectedYears] = useState([String(new Date().getFullYear())]);
+  const [allMonths, setAllMonths] = useState(STATIC);
+  const [selectedYears, setSelectedYears] = useState(defaultYears);
   const [loadProgress, setLoadProgress] = useState(null);
   const [pageSize, setPageSize] = useState(20);
   const [readerExpanded, setReaderExpanded] = useState(false);
@@ -46,6 +55,7 @@ function App() {
   const [input, setInput] = useState('');
   const [toasts, setToasts] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [demand, setDemand] = useState({ id: null, state: 'idle' });
   const [page, setPage] = useState(1);
   const [view, setView] = useState('list');
   const [savedOnly, setSavedOnly] = useState(false);
@@ -122,7 +132,7 @@ function App() {
     try {
       if (STATIC) {
         const data = await loadPublishedData(import.meta.env.BASE_URL, targetMonth, {
-          all: useAll, years, range, fallbackToLatest: !!options.auto,
+          all: useAll, years, range, fallbackToLatest: !!options.auto, clampUnknownYears: !!options.auto,
           onProgress: p => { if (id === request.current) setLoadProgress(p); },
         });
         if (id !== request.current) return;
@@ -133,6 +143,17 @@ function App() {
           setAllMonths(false);
           notify(`ยังไม่มี ${monthTH(targetMonth)} • แสดง ${monthTH(data.fallbackTo)} แทน`, 'error');
         } else {
+          // Keep the year/month controls on what was actually loaded: the default
+          // ten-year window may include years upstream has not published yet.
+          if (useAll && !range) {
+            setSelectedYears([...data.selectedYears].reverse());
+            setAllMonths(true);
+            const lastLoaded = data.loadedMonths?.at(-1);
+            if (lastLoaded) setMonth(lastLoaded);
+          }
+          if (useAll && options.auto && !data.loadedMonths?.includes(targetMonth)) {
+            notify(`ต้นทางยังไม่มีไฟล์เดือน ${monthTH(targetMonth)} • ข้อมูลถึง ${monthTH(data.loadedMonths?.at(-1))}`, 'error');
+          }
           notify(`โหลด ${data.rows.length} ประกาศ • ${data.month}${data.stale ? ' • ข้อมูลอาจเก่า' : ''}`, data.stale ? 'error' : 'success');
         }
         return;
@@ -185,15 +206,62 @@ function App() {
       if (!r.ok) throw Error(data.error);
       if (id !== request.current) return;
       const byId = new Map(data.rows.map(r => [r.id, r]));
-      setRows(previous => previous.map(r => {
-        const o = byId.get(r.id) || data.rows.find(x => x.id === r.pdfFile);
-        return o?.text ? { ...r, text: o.text } : r;
-      }));
+      setRows(previous => {
+        const known = new Set(previous.map(r => r.id));
+        const fresh = (data.rows || [])
+          .filter(o => o?.text && !known.has(o.id))
+          .map(o => ({ ...o, ...classify(o.title) }))
+          .filter(o => o.group !== 'other');
+        return [...previous.map(r => {
+          const o = byId.get(r.id) || data.rows.find(x => x.id === r.pdfFile);
+          return o?.text ? { ...r, text: o.text, textSource: o.textSource } : r;
+        }), ...fresh];
+      });
       notify('โหลด OCR แล้ว');
     } catch {
       if (id === request.current) notify('บริการ OCR ไม่พร้อม • เปิด PDF ต้นฉบับแทน', 'error');
     } finally {
       if (id === request.current) setLoading(false);
+    }
+  }
+
+  // On-demand OCR for a single notice that has no text yet (dev/API mode only:
+  // the server runs the mupdf + tesseract pipeline and caches the result in
+  // .local-ocr so later searches and syncs can use it).
+  async function runDemand() {
+    if (!selected || !selected.pdf || demand.state === 'working') return;
+    setDemand({ id: selected.id, state: 'working' });
+    const month = (selected.date || '').slice(0, 7) || new Date().toISOString().slice(0, 7);
+    try {
+      const started = await fetch('/api/ocr-one', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, pdf: selected.pdf, title: selected.title, month }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const body = await started.json();
+      if (!started.ok) throw Error(body.error || `HTTP ${started.status}`);
+      const jobId = body.jobId;
+      let job = null;
+      for (let i = 0; i < 90; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const res = await fetch(`/api/ocr-one/${encodeURIComponent(jobId)}`, { signal: AbortSignal.timeout(15000) });
+        job = await res.json();
+        if (!res.ok) throw Error(job.error || `HTTP ${res.status}`);
+        if (job.status === 'done' || job.status === 'error') break;
+      }
+      if (!job || job.status !== 'done') throw Error(job?.error || 'ใช้เวลานานเกินไป กรุณาลองใหม่ภายหลัง');
+      const { text, source } = job.result || {};
+      if (!text) throw Error('ไม่พบข้อความในไฟล์');
+      const textSource = source === 'textlayer' ? 'textlayer' : 'local';
+      setRows(previous => previous.map(r => r.id === selected.id ? { ...r, text, textSource } : r));
+      // The open dialog holds its own row reference — refresh it too.
+      setSelected(previous => previous && previous.id === selected.id ? { ...previous, text, textSource } : previous);
+      setDemand({ id: selected.id, state: 'idle' });
+      notify('สร้างข้อความจากไฟล์แล้ว');
+    } catch (e) {
+      setDemand({ id: selected.id, state: 'error', error: e.message });
+      notify('สร้างข้อความจากไฟล์ไม่สำเร็จ', 'error');
     }
   }
 
@@ -371,6 +439,8 @@ function App() {
                       <span className={`tag ${r.group === 'nacc' ? 'purple' : r.group === 'removals' ? 'removal' : ''}`}>{groupTags[r.group] || 'ประกาศ'}</span>
                       <span className="sub-tag">{r.sub}</span>
                       {r.text && <span className="ocr-tag">OCR</span>}
+                      {r.text && r.textSource === 'textlayer' && <span className="ocr-tag src-local" title="ข้อความที่ดึงจาก text layer ในตัวไฟล์">ข้อความในไฟล์</span>}
+                      {r.text && r.textSource === 'local' && <span className="ocr-tag src-local" title="ข้อความจาก OCR ในเครื่องของระบบ">OCR ในเครื่อง</span>}
                     </div>
                     <button className="document-title" onClick={() => setSelected(r)}>{highlight(r.title)}</button>
                     <div className="card-meta">
@@ -458,8 +528,21 @@ function App() {
                 <span className="tag">{selected.sub}</span>
                 <h2>{selected.title}</h2>
                 <p className="modal-date"><CalendarDays size={15} />{dateTH(selected.date)} · เล่ม {selected.volume} ตอน {selected.part}</p>
-                <div className="ocr-notice"><Info size={15} /> {selected.text ? 'ข้อความ OCR อาจคลาดเคลื่อน' : 'ยังไม่มีข้อความ OCR'}</div>
-                <OcrReader key={selected.id} text={selected.text || ''} query={f.q} mode={f.match} expanded={readerExpanded} onExpand={() => setReaderExpanded(p => !p)} />
+                <div className="ocr-notice"><Info size={15} /> {selected.text
+                  ? selected.textSource === 'upstream' ? 'ข้อความ OCR อาจคลาดเคลื่อน'
+                    : selected.textSource === 'textlayer' ? 'ข้อความที่ดึงจากตัวไฟล์ อาจคลาดเคลื่อนในบางจุด'
+                      : 'ข้อความจาก OCR ในเครื่อง อาจคลาดเคลื่อน ควรตรวจเทียบกับต้นฉบับ'
+                  : 'ยังไม่มีข้อความ OCR'}</div>
+                <OcrReader
+                  key={selected.id}
+                  text={selected.text || ''}
+                  query={f.q}
+                  mode={f.match}
+                  expanded={readerExpanded}
+                  onExpand={() => setReaderExpanded(p => !p)}
+                  demand={demand.id === selected.id ? demand : { state: 'idle' }}
+                  onDemandClick={!STATIC && selected.pdf ? runDemand : undefined}
+                />
                 <div className="modal-actions">
                   <button onClick={() => toggleSaved(selected)}><Bookmark size={16} /> {saved.includes(selected.id) ? 'บันทึกแล้ว' : 'บันทึก'}</button>
                   {selected.pdf
