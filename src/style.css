@@ -239,3 +239,10 @@ input[type=radio],input[type=checkbox]{width:18px;height:18px;flex-shrink:0}
 [data-theme=dark] .coverage-status.ok{background:#2d3c2c;border-color:#445a41;color:#b7cfae}
 [data-theme=dark] .coverage-status.warn{background:#3b3629;border-color:#514834;color:#d4bd8f}
 @media(max-width:740px){.coverage-status{font-size:0.8125rem}.current-month-button{font-size:0.8125rem}}
+.ocr-tag.src-local{color:#785399;background:#eee7f4;border-radius:4px;padding:1px 6px;margin-left:0}
+.ocr-demand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f4f0f9;border:1px solid #e2d9ee;border-radius:8px;padding:13px 15px;margin:0 0 12px;color:#5d4674;font-size:0.9375rem}
+.ocr-demand button{margin-left:auto;background:#785399;color:#fff8ff;border-radius:6px;padding:8px 14px;font-size:0.9375rem;font-weight:500;display:flex;align-items:center;gap:7px}
+.ocr-demand button:disabled{opacity:.6}
+[data-theme=dark] .ocr-demand{background:#2c2536;border-color:#4a3d5f;color:#cbb8e2}
+[data-theme=dark] .ocr-demand button{background:#9b7fc4}
+@media(max-width:740px){.ocr-demand{align-items:flex-start}.ocr-demand button{margin-left:0}}

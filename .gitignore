@@ -8,3 +8,6 @@ public/.nojekyll
 
 test-results/
 playwright-report/
+.local-ocr/
+.ocr-cache/
+.ocr-coverage/

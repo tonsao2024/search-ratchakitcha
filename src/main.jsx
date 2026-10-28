@@ -55,6 +55,7 @@ function App() {
   const [input, setInput] = useState('');
   const [toasts, setToasts] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [demand, setDemand] = useState({ id: null, state: 'idle' });
   const [page, setPage] = useState(1);
   const [view, setView] = useState('list');
   const [savedOnly, setSavedOnly] = useState(false);
@@ -205,15 +206,62 @@ function App() {
       if (!r.ok) throw Error(data.error);
       if (id !== request.current) return;
       const byId = new Map(data.rows.map(r => [r.id, r]));
-      setRows(previous => previous.map(r => {
-        const o = byId.get(r.id) || data.rows.find(x => x.id === r.pdfFile);
-        return o?.text ? { ...r, text: o.text } : r;
-      }));
+      setRows(previous => {
+        const known = new Set(previous.map(r => r.id));
+        const fresh = (data.rows || [])
+          .filter(o => o?.text && !known.has(o.id))
+          .map(o => ({ ...o, ...classify(o.title) }))
+          .filter(o => o.group !== 'other');
+        return [...previous.map(r => {
+          const o = byId.get(r.id) || data.rows.find(x => x.id === r.pdfFile);
+          return o?.text ? { ...r, text: o.text, textSource: o.textSource } : r;
+        }), ...fresh];
+      });
       notify('โหลด OCR แล้ว');
     } catch {
       if (id === request.current) notify('บริการ OCR ไม่พร้อม • เปิด PDF ต้นฉบับแทน', 'error');
     } finally {
       if (id === request.current) setLoading(false);
+    }
+  }
+
+  // On-demand OCR for a single notice that has no text yet (dev/API mode only:
+  // the server runs the mupdf + tesseract pipeline and caches the result in
+  // .local-ocr so later searches and syncs can use it).
+  async function runDemand() {
+    if (!selected || !selected.pdf || demand.state === 'working') return;
+    setDemand({ id: selected.id, state: 'working' });
+    const month = (selected.date || '').slice(0, 7) || new Date().toISOString().slice(0, 7);
+    try {
+      const started = await fetch('/api/ocr-one', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, pdf: selected.pdf, title: selected.title, month }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const body = await started.json();
+      if (!started.ok) throw Error(body.error || `HTTP ${started.status}`);
+      const jobId = body.jobId;
+      let job = null;
+      for (let i = 0; i < 90; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const res = await fetch(`/api/ocr-one/${encodeURIComponent(jobId)}`, { signal: AbortSignal.timeout(15000) });
+        job = await res.json();
+        if (!res.ok) throw Error(job.error || `HTTP ${res.status}`);
+        if (job.status === 'done' || job.status === 'error') break;
+      }
+      if (!job || job.status !== 'done') throw Error(job?.error || 'ใช้เวลานานเกินไป กรุณาลองใหม่ภายหลัง');
+      const { text, source } = job.result || {};
+      if (!text) throw Error('ไม่พบข้อความในไฟล์');
+      const textSource = source === 'textlayer' ? 'textlayer' : 'local';
+      setRows(previous => previous.map(r => r.id === selected.id ? { ...r, text, textSource } : r));
+      // The open dialog holds its own row reference — refresh it too.
+      setSelected(previous => previous && previous.id === selected.id ? { ...previous, text, textSource } : previous);
+      setDemand({ id: selected.id, state: 'idle' });
+      notify('สร้างข้อความจากไฟล์แล้ว');
+    } catch (e) {
+      setDemand({ id: selected.id, state: 'error', error: e.message });
+      notify('สร้างข้อความจากไฟล์ไม่สำเร็จ', 'error');
     }
   }
 
@@ -391,6 +439,8 @@ function App() {
                       <span className={`tag ${r.group === 'nacc' ? 'purple' : r.group === 'removals' ? 'removal' : ''}`}>{groupTags[r.group] || 'ประกาศ'}</span>
                       <span className="sub-tag">{r.sub}</span>
                       {r.text && <span className="ocr-tag">OCR</span>}
+                      {r.text && r.textSource === 'textlayer' && <span className="ocr-tag src-local" title="ข้อความที่ดึงจาก text layer ในตัวไฟล์">ข้อความในไฟล์</span>}
+                      {r.text && r.textSource === 'local' && <span className="ocr-tag src-local" title="ข้อความจาก OCR ในเครื่องของระบบ">OCR ในเครื่อง</span>}
                     </div>
                     <button className="document-title" onClick={() => setSelected(r)}>{highlight(r.title)}</button>
                     <div className="card-meta">
@@ -478,8 +528,21 @@ function App() {
                 <span className="tag">{selected.sub}</span>
                 <h2>{selected.title}</h2>
                 <p className="modal-date"><CalendarDays size={15} />{dateTH(selected.date)} · เล่ม {selected.volume} ตอน {selected.part}</p>
-                <div className="ocr-notice"><Info size={15} /> {selected.text ? 'ข้อความ OCR อาจคลาดเคลื่อน' : 'ยังไม่มีข้อความ OCR'}</div>
-                <OcrReader key={selected.id} text={selected.text || ''} query={f.q} mode={f.match} expanded={readerExpanded} onExpand={() => setReaderExpanded(p => !p)} />
+                <div className="ocr-notice"><Info size={15} /> {selected.text
+                  ? selected.textSource === 'upstream' ? 'ข้อความ OCR อาจคลาดเคลื่อน'
+                    : selected.textSource === 'textlayer' ? 'ข้อความที่ดึงจากตัวไฟล์ อาจคลาดเคลื่อนในบางจุด'
+                      : 'ข้อความจาก OCR ในเครื่อง อาจคลาดเคลื่อน ควรตรวจเทียบกับต้นฉบับ'
+                  : 'ยังไม่มีข้อความ OCR'}</div>
+                <OcrReader
+                  key={selected.id}
+                  text={selected.text || ''}
+                  query={f.q}
+                  mode={f.match}
+                  expanded={readerExpanded}
+                  onExpand={() => setReaderExpanded(p => !p)}
+                  demand={demand.id === selected.id ? demand : { state: 'idle' }}
+                  onDemandClick={!STATIC && selected.pdf ? runDemand : undefined}
+                />
                 <div className="modal-actions">
                   <button onClick={() => toggleSaved(selected)}><Bookmark size={16} /> {saved.includes(selected.id) ? 'บันทึกแล้ว' : 'บันทึก'}</button>
                   {selected.pdf

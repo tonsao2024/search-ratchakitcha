@@ -1,9 +1,9 @@
 import React,{useState,useMemo,useEffect,useRef} from 'react';
-import {Minus,Plus,Maximize2,Minimize2,RotateCcw,ChevronUp,ChevronDown,Search,X} from 'lucide-react';
+import {Minus,Plus,Maximize2,Minimize2,RotateCcw,ChevronUp,ChevronDown,Search,X,ScanText,LoaderCircle,AlertCircle} from 'lucide-react';
 import {READER_DEFAULTS,READER_FONTS,readerSettings,findOcrMatches,ocrSegments} from './ocr-reader';
 const STORAGE='ratcha-ocr-reader';
 function initialSettings(){try{return readerSettings(JSON.parse(localStorage.getItem(STORAGE)))}catch{return READER_DEFAULTS}}
-export default function OcrReader({text,query,mode,expanded,onExpand}){
+export default function OcrReader({text,query,mode,expanded,onExpand,demand,onDemandClick}){
  const [settings,setSettings]=useState(initialSettings);
  const [localQuery,setLocalQuery]=useState(query),[active,setActive]=useState(0);
  const content=useRef(null);
@@ -32,6 +32,17 @@ export default function OcrReader({text,query,mode,expanded,onExpand}){
    <label className="ocr-find-input"><Search size={17}/><input aria-label="ค้นหาในข้อความ OCR" value={localQuery} onChange={e=>{setLocalQuery(e.target.value);setActive(0)}} disabled={!text} placeholder="ค้นคำในเอกสารนี้…" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();navigate(e.shiftKey?-1:1)}}}/>{localQuery&&<button type="button" aria-label="ล้างคำค้นใน OCR" onClick={()=>setLocalQuery('')}><X size={16}/></button>}</label>
    <div className="ocr-match-nav"><span role="status" aria-label="ผลการค้นหาใน OCR" aria-live="polite">{!text?'ยังไม่มี OCR':!localQuery.trim()?'ระบุคำเพื่อไฮไลต์':matches.length?`${current+1} / ${matches.length} จุด`:'ไม่พบคำใน OCR'}</span><button type="button" aria-label="คำที่พบก่อนหน้า" disabled={!matches.length} onClick={()=>navigate(-1)}><ChevronUp size={19}/></button><button type="button" aria-label="คำที่พบถัดไป" disabled={!matches.length} onClick={()=>navigate(1)}><ChevronDown size={19}/></button></div>
   </div>
+  {!text&&onDemandClick&&(
+   <div className="ocr-demand" role="group" aria-label="สร้างข้อความจากไฟล์">
+    {demand?.state==='working'?(
+     <><LoaderCircle className="spin" size={17}/><span>กำลังสร้างข้อความจากไฟล์ PDF… (อาจใช้เวลาร้อยกว่าวินาที)</span></>
+    ):demand?.state==='error'?(
+     <><AlertCircle size={17}/><span>{demand.error||'สร้างข้อความไม่สำเร็จ'}</span><button type="button" onClick={onDemandClick}>ลองใหม่</button></>
+    ):(
+     <><ScanText size={17}/><span>ไฟล์นี้ยังไม่มีข้อความในฐานข้อมูล</span><button type="button" className="ocr-demand-run" onClick={onDemandClick}>OCR ฉบับนี้</button></>
+    )}
+   </div>
+  )}
   <p className="ocr-reader-hint">{mode==='exact'?'ไฮไลต์ตรงทั้งวลี':'ไฮไลต์ทุกคำที่ค้นหา'} • Enter: จุดถัดไป / Shift+Enter: จุดก่อนหน้า • การค้นในช่องนี้ไม่เปลี่ยนตัวกรองรายการ</p>
   <div className="document-text ocr-reader-content" ref={content} tabIndex={0} role="region" aria-label="ข้อความ OCR" style={{fontFamily:READER_FONTS[settings.font],fontSize:`${settings.size/16}rem`}}>
    {text?parts.map((part,i)=>part.match===undefined?<React.Fragment key={i}>{part.text}</React.Fragment>:<mark key={i} data-match={part.match} aria-current={part.match===current?'true':undefined} className={part.match===current?'ocr-current-match':''}>{part.text}</mark>):'ยังไม่มีข้อความ OCR ในข้อมูลที่โหลด โปรดเปิด PDF ต้นฉบับด้านล่าง'}
