@@ -25,7 +25,7 @@ export function classify(title=''){
  const body=subject||normalized;
  if(isRemovalNotice(body) && !proceduralPattern.test(body)) return {group:'removals',sub:personnelSub(body)};
  if(nacc) return {group:'nacc',sub:/สำนักงาน/.test(authority)?groups.nacc[0]:/คณะกรรมการ/.test(authority)?groups.nacc[1]:groups.nacc[3]};
- if(!/แต่งตั้ง|ให้.*ดำรงตำแหน่ง/.test(body))return {group:'other',sub:''};
+ if(!/แต่งตั้ง|ให้.*ดำรงตำแหน่ง|พระราชทานยศ/.test(body))return {group:'other',sub:''};
  return {group:'appointments',sub:personnelSub(body)};
 }
 export function filterRows(rows,f){
