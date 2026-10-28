@@ -16,6 +16,15 @@ import './style.css';
 import './filters.css';
 
 const STATIC = import.meta.env.VITE_STATIC_DATA === 'true';
+// The published build opens with a rolling window of the ten most recent
+// calendar years (current year included) so a decade of notices is searched
+// by default instead of the current month alone.
+const DEFAULT_YEAR_SPAN = 10;
+const defaultYears = () => {
+  if (!STATIC) return [String(new Date().getFullYear())];
+  const current = new Date().getFullYear();
+  return Array.from({ length: DEFAULT_YEAR_SPAN }, (_, offset) => String(current - offset));
+};
 const defaults = {
   q: '', group: 'all', sub: '', from: '', to: '', scope: 'all',
   match: 'all', exclude: '', agency: '', ocr: false, sort: 'newest',
@@ -29,8 +38,8 @@ const monthTH = m => m
 
 function App() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
-  const [allMonths, setAllMonths] = useState(false);
-  const [selectedYears, setSelectedYears] = useState([String(new Date().getFullYear())]);
+  const [allMonths, setAllMonths] = useState(STATIC);
+  const [selectedYears, setSelectedYears] = useState(defaultYears);
   const [loadProgress, setLoadProgress] = useState(null);
   const [pageSize, setPageSize] = useState(20);
   const [readerExpanded, setReaderExpanded] = useState(false);
@@ -122,7 +131,7 @@ function App() {
     try {
       if (STATIC) {
         const data = await loadPublishedData(import.meta.env.BASE_URL, targetMonth, {
-          all: useAll, years, range, fallbackToLatest: !!options.auto,
+          all: useAll, years, range, fallbackToLatest: !!options.auto, clampUnknownYears: !!options.auto,
           onProgress: p => { if (id === request.current) setLoadProgress(p); },
         });
         if (id !== request.current) return;
@@ -133,6 +142,17 @@ function App() {
           setAllMonths(false);
           notify(`ยังไม่มี ${monthTH(targetMonth)} • แสดง ${monthTH(data.fallbackTo)} แทน`, 'error');
         } else {
+          // Keep the year/month controls on what was actually loaded: the default
+          // ten-year window may include years upstream has not published yet.
+          if (useAll && !range) {
+            setSelectedYears([...data.selectedYears].reverse());
+            setAllMonths(true);
+            const lastLoaded = data.loadedMonths?.at(-1);
+            if (lastLoaded) setMonth(lastLoaded);
+          }
+          if (useAll && options.auto && !data.loadedMonths?.includes(targetMonth)) {
+            notify(`ต้นทางยังไม่มีไฟล์เดือน ${monthTH(targetMonth)} • ข้อมูลถึง ${monthTH(data.loadedMonths?.at(-1))}`, 'error');
+          }
           notify(`โหลด ${data.rows.length} ประกาศ • ${data.month}${data.stale ? ' • ข้อมูลอาจเก่า' : ''}`, data.stale ? 'error' : 'success');
         }
         return;

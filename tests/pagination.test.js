@@ -14,3 +14,9 @@ test('multiple nonconsecutive years, all years, empty selection and date interse
  assert.throws(()=>selectMonths(manifest,'2026-01',{all:true,years:['1858']}));
  assert.deepEqual(selectMonths(manifest,'2026-01',{all:true,years:['1920','2026'],range:{from:'2025-01-01',to:'2026-02-01'}}),['2026-01']);
 });
+test('default year window clamps unpublished years and only falls back when nothing overlaps',()=>{
+ assert.deepEqual(selectMonths(manifest,'2026-10',{all:true,years:['2024','2025','2026'],clampUnknownYears:true}),['2025-01','2025-12','2026-01','2026-09']);
+ assert.deepEqual(selectMonths(manifest,'2026-10',{all:true,years:['1900'],clampUnknownYears:true,fallbackToLatest:true}),['2026-09']);
+ assert.throws(()=>selectMonths(manifest,'2026-10',{all:true,years:['2024','2025','2026']}),/บางปีที่เลือกยังไม่มีข้อมูลในฐาน/);
+ assert.throws(()=>selectMonths(manifest,'2026-10',{all:true,years:['1900'],clampUnknownYears:true}),/ยังไม่มีข้อมูลสำหรับ/);
+});

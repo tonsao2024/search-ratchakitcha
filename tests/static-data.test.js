@@ -26,6 +26,18 @@ test('auto-load falls back to the latest published month and reports the fallbac
  assert.equal(data.fallbackTo,'2026-09');assert.equal(data.month,'2026-09');
  assert.equal(data.coverage.hasCurrentMonth,false);assert.equal(data.coverage.status,'incomplete');
 });
+test('default year window loads the published subset without degrading to a single month',async()=>{
+ const stale={months:[{month:'2026-08'},{month:'2026-09'}],syncedAt:new Date().toISOString(),revision:'abc',source:'https://huggingface.co',currentMonth:'2026-10',latestMonth:'2026-09'};
+ const years=['2024','2025','2026'];
+ const data=await loadPublishedData('/','2026-10',{all:true,years,fallbackToLatest:true,clampUnknownYears:true,fetcher:async url=>url.endsWith('manifest.json')?new Response(JSON.stringify(stale)):fixture(url)});
+ assert.equal(data.fallbackTo,null);
+ assert.deepEqual(data.selectedYears,['2026']);
+ assert.deepEqual(data.loadedMonths,['2026-08','2026-09']);
+ assert.equal(data.month,'2026-08 – 2026-09');
+ assert.equal(data.rows.length,2);
+ // Explicit year application keeps strict validation for unpublished years.
+ await assert.rejects(loadPublishedData('/','2026-10',{all:true,years,fallbackToLatest:true,fetcher:async url=>url.endsWith('manifest.json')?new Response(JSON.stringify(stale)):fixture(url)}),/บางปีที่เลือกยังไม่มีข้อมูลในฐาน/);
+});
 test('incomplete manifests, truncated monthly files and row-count mismatches fail loudly',async()=>{
  const incomplete={...manifest,complete:false};
  await assert.rejects(loadPublishedData('/','2026-09',{fetcher:async url=>url.endsWith('manifest.json')?new Response(JSON.stringify(incomplete)):fixture(url)}),/ยังไม่ครบถ้วน/);

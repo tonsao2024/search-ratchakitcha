@@ -1,13 +1,17 @@
 import { coverageSummary } from './sync-integrity.js';
 
-export function selectMonths(manifest, month, { all = false, year = month.slice(0, 4), years, range, fallbackToLatest = false } = {}) {
+export function selectMonths(manifest, month, { all = false, year = month.slice(0, 4), years, range, fallbackToLatest = false, clampUnknownYears = false } = {}) {
   const allAvailable = manifest.months.map(item => item.month).sort();
   let available = allAvailable;
   if (years !== undefined && years !== null) {
     if (!Array.isArray(years) || !years.length) throw Error('กรุณาเลือกอย่างน้อยหนึ่งปี');
     const known = new Set(allAvailable.map(item => item.slice(0, 4)));
-    if (years.some(value => !known.has(value))) throw Error('บางปีที่เลือกยังไม่มีข้อมูลในฐาน');
-    available = available.filter(item => years.includes(item.slice(0, 4)));
+    // The default rolling year window may include years upstream has not
+    // published yet; when clamping is allowed, load the published subset
+    // instead of failing the whole load.
+    const requested = years.filter(value => known.has(value));
+    if (requested.length < years.length && !clampUnknownYears) throw Error('บางปีที่เลือกยังไม่มีข้อมูลในฐาน');
+    available = available.filter(item => requested.includes(item.slice(0, 4)));
   }
   const fallbackMonth = () => (available.length ? available : allAvailable).at(-1) || null;
   if (range) {
@@ -34,7 +38,7 @@ export function selectMonths(manifest, month, { all = false, year = month.slice(
   return selected;
 }
 
-export async function loadPublishedData(base, month, { all = false, year = month.slice(0, 4), years, range, onProgress, fetcher = fetch, fallbackToLatest = false } = {}) {
+export async function loadPublishedData(base, month, { all = false, year = month.slice(0, 4), years, range, onProgress, fetcher = fetch, fallbackToLatest = false, clampUnknownYears = false } = {}) {
   const options = { cache: 'no-store', signal: AbortSignal.timeout(180000) };
   const manifestResponse = await fetcher(`${base}data/manifest.json`, options);
   if (!manifestResponse.ok) throw Error('ยังไม่พบข้อมูลที่เผยแพร่');
@@ -42,8 +46,10 @@ export async function loadPublishedData(base, month, { all = false, year = month
   if (!Array.isArray(manifest.months) || !manifest.months.length) throw Error('Published manifest is empty');
   if (manifest.complete === false) throw Error('ชุดข้อมูลที่เผยแพร่ยังไม่ครบถ้วน กรุณารอการซิงก์ครั้งถัดไป');
 
-  const months = selectMonths(manifest, month, { all, year, years, range, fallbackToLatest });
-  const fallbackTo = fallbackToLatest && !months.includes(month) ? months[0] : null;
+  const months = selectMonths(manifest, month, { all, year, years, range, fallbackToLatest, clampUnknownYears });
+  // A specific month that could not be loaded collapses to one fallback month
+  // and is reported as such; a whole-year window that still has data is not.
+  const fallbackTo = fallbackToLatest && !all && !months.includes(month) ? months[0] : null;
   const entryByMonth = new Map(manifest.months.map(entry => [entry.month, entry]));
   // Use one annual bundle instead of twelve monthly requests whenever a complete year is selected.
   const selectedYears = [...new Set(months.map(item => item.slice(0, 4)))].sort();
