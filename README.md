@@ -112,7 +112,7 @@ The previous deployment stopped at `2026-09` because its workflow was pinned to 
 
 - Settings → Pages → Source: **GitHub Actions**
 - Settings → Environments → github-pages → Deployment branches: allow **main** and **arena/e5ab8751-search-ratchakitcha**.
-- Workflow: `.github/workflows/pages.yml`, triggered by pushes to `main`, manual dispatch, and the daily schedule. Checkout uses the triggering ref rather than a hard-coded branch. The Playwright suite runs on **every** trigger, pushes included — skipping it on push previously let UI regressions land on `main` and surface only in the next nightly run (run [40806080526](https://github.com/tonsao2024/search-ratchakitcha/actions/runs/40806080526)).
+- Workflow: `.github/workflows/pages.yml`, triggered by pull requests targeting `main`, pushes to `main`, manual dispatch, and the daily schedule. Checkout uses the triggering ref rather than a hard-coded branch. The Playwright suite runs on **every** trigger and only the deploy job is main-only — gating it on `github.event_name != 'push'` previously let UI regressions land on `main` and surface only in the next nightly run (run [40806080526](https://github.com/tonsao2024/search-ratchakitcha/actions/runs/40806080526)).
 - The daily schedule is configured for **06:15 Asia/Bangkok** and is active because the workflow is present on the default branch `main`. GitHub scheduled execution can be delayed. Manual dispatch on another ref still requires that ref to satisfy the `github-pages` environment branch policy.
 - No Hugging Face token is needed for this public dataset.
 

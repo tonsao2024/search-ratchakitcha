@@ -2,6 +2,11 @@ name: Sync real data and deploy Pages
 on:
   push:
     branches: [main]
+  # Validate tests and the browser suite before a change lands on main; only
+  # the deploy job stays main-only (the github-pages environment restricts
+  # deployments to main anyway).
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       data_month:
@@ -72,6 +77,7 @@ jobs:
         with:
           path: dist
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:
