@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {loadPublishedData} from '../src/static-data.js';
+import {loadPublishedData,yearsAfterLoad} from '../src/static-data.js';
 const manifest={months:[{month:'2026-08'},{month:'2026-09'}],syncedAt:new Date().toISOString(),revision:'abc',source:'https://huggingface.co/datasets/open-law-data-thailand/soc-ratchakitcha'};
 function fixture(url){
  if(url.endsWith('manifest.json'))return new Response(JSON.stringify(manifest));
@@ -58,4 +58,25 @@ test('annual bundles load multi-year or all-year records with bounded requests a
  assert.deepEqual(progress.at(-1),{loaded:2,total:2});
  const all=await loadPublishedData('/site/','2026-01',{all:true,years:null,fetcher});
  assert.equal(all.allYears,true);assert.equal(all.rows.length,3);
+});
+test('the year control keeps an explicit all-year choice and mirrors a clamped window',async()=>{
+ const annual={revision:'test',syncedAt:new Date().toISOString(),source:'https://huggingface.co',months:[{month:'1920-09'},{month:'2025-09'},{month:'2026-09'}],yearFiles:['1920','2025','2026']};
+ const fetcher=async url=>new Response(JSON.stringify(url.endsWith('manifest.json')?annual:{revision:'test',complete:true,scanned:1,rows:[{id:url}]}));
+ // "ทุกปี" (years === null) stays null, otherwise the picker prints "2569, 2568, 2463"
+ // instead of ทุกปี and stops following years that upstream publishes later.
+ const everyYear=await loadPublishedData('/','2026-09',{all:true,years:null,fetcher});
+ assert.equal(everyYear.allYears,true);
+ assert.deepEqual(everyYear.selectedYears,['1920','2025','2026']);
+ assert.equal(yearsAfterLoad(everyYear),null);
+ // The default ten-year window clamps to the published years and shows exactly those.
+ const decade=['2026','2025','2024','2023','2022','2021','2020','2019','2018','2017'];
+ const clamped=await loadPublishedData('/','2026-09',{all:true,years:decade,fallbackToLatest:true,clampUnknownYears:true,fetcher});
+ assert.equal(clamped.allYears,false);
+ assert.deepEqual(clamped.selectedYears,['2025','2026']);
+ assert.deepEqual(yearsAfterLoad(clamped),['2026','2025']);
+ // A date range narrows the months, so the loaded years are reported rather than "ทุกปี".
+ const ranged=await loadPublishedData('/','2026-09',{all:true,years:null,range:{from:'2026-01-01',to:'2026-12-31'},fetcher});
+ assert.equal(ranged.allYears,false);
+ assert.deepEqual(ranged.loadedMonths,['2026-09']);
+ assert.deepEqual(yearsAfterLoad(ranged),['2026']);
 });

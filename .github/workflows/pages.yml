@@ -28,11 +28,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Install browser for readability checks
-        if: github.event_name != 'push'
+      - name: Install browser for end-to-end checks
         run: npx playwright install --with-deps chromium
-      - name: Check desktop and mobile readability
-        if: github.event_name != 'push'
+      # Runs on every trigger, pushes included: skipping it on push let two UI
+      # regressions reach main and surface only in the next nightly run.
+      - name: Run Playwright end-to-end checks
         run: npm run test:readability
       - uses: actions/cache/restore@v4
         with:

@@ -92,7 +92,7 @@ The Pages build uses **static JSON generated from the actual Hugging Face datase
 2. Downloads each complete monthly metadata file and filters appointments / NACC notices.
 3. Streams the matching monthly `ocr/openlawdata-ocr` file and joins valid OCR text by document ID / PDF filename. Missing OCR is reported separately; no text is fabricated.
 4. Writes `public/data/YYYY-MM.json` and a manifest recording revision, counts, OCR coverage, and real sync timestamps.
-5. CI verifies every published monthly file and annual bundle against the pinned revision, then builds with `VITE_STATIC_DATA=true` and `VITE_BASE_PATH=/search-ratchakitcha/`. Pages loads only project-relative static JSON; all filters and OCR search operate on the imported records. By default it opens with a **rolling window of the ten most recent calendar years** (current year included), every month of those years. Years upstream has not published yet are clamped out of the load instead of failing it; the year/month controls then show exactly what was loaded, the month control lands on the last published month, and a missing current month is reported explicitly. If the whole window has no data, it falls back to the latest published month and says so. The “every month of the selected year” checkbox and year picker remain available for broader browsing (and the checkbox also switches back to a single selected month).
+5. CI verifies every published monthly file and annual bundle against the pinned revision, then builds with `VITE_STATIC_DATA=true` and `VITE_BASE_PATH=/search-ratchakitcha/`. Pages loads only project-relative static JSON; all filters and OCR search operate on the imported records. By default it opens with a **rolling window of the ten most recent calendar years** (current year included), every month of those years. Years upstream has not published yet are clamped out of the load instead of failing it; the year/month controls then show exactly what was loaded, the month control lands on the last published month, and a missing current month is reported explicitly. An explicit **ทุกปี** choice is the exception: it stays ทุกปี in the picker rather than being rewritten to the list of years that happened to exist at load time, so it keeps picking up years upstream publishes later. If the whole window has no data, it falls back to the latest published month and says so. The “every month of the selected year” checkbox and year picker remain available for broader browsing (and the checkbox also switches back to a single selected month).
 
 Generated data lives in Actions/Pages artifacts, not Git. A metadata fetch failure, a missing current-year month, a truncated file, a row-count mismatch, or unavailable current-month OCR prevents publication; the previously deployed site stays intact and the UI marks it stale. Older-year OCR is intentionally not imported, and partial OCR coverage is reported rather than fabricated. The refresh button reloads the latest published dataset, **not** a new Actions run.
 
@@ -112,7 +112,7 @@ The previous deployment stopped at `2026-09` because its workflow was pinned to 
 
 - Settings → Pages → Source: **GitHub Actions**
 - Settings → Environments → github-pages → Deployment branches: allow **main** and **arena/e5ab8751-search-ratchakitcha**.
-- Workflow: `.github/workflows/pages.yml`, triggered by pushes to `main`, manual dispatch, and the daily schedule. Checkout uses the triggering ref rather than a hard-coded branch.
+- Workflow: `.github/workflows/pages.yml`, triggered by pushes to `main`, manual dispatch, and the daily schedule. Checkout uses the triggering ref rather than a hard-coded branch. The Playwright suite runs on **every** trigger, pushes included — skipping it on push previously let UI regressions land on `main` and surface only in the next nightly run (run [40806080526](https://github.com/tonsao2024/search-ratchakitcha/actions/runs/40806080526)).
 - The daily schedule is configured for **06:15 Asia/Bangkok** and is active because the workflow is present on the default branch `main`. GitHub scheduled execution can be delayed. Manual dispatch on another ref still requires that ref to satisfy the `github-pages` environment branch policy.
 - No Hugging Face token is needed for this public dataset.
 
@@ -136,7 +136,7 @@ The importer pins the dataset revision and caches normalized monthly records by 
 
 Pagination defaults to 20 items, supports 10/20/50/100 items per page, first/previous/next/last buttons, ellipses, an accessible current-page indicator and a validated jump-to-page form. Page changes scroll back to the results heading; reduced-motion preference is respected. Filters/page-size changes reset or clamp the current page.
 
-Tests: `npm test` for parsing/filtering/year selection/pagination; `npm run test:readability` includes real-browser responsive checks plus mocked historical-year, cross-year date and pagination interactions.
+Tests: `npm test` for parsing/filtering/year selection/pagination (including which years the picker should show after a load); `npm run test:readability` runs the whole Playwright suite — real-browser responsive checks plus mocked projects for historical years / cross-year dates / pagination, the OCR reader, and the on-demand `OCR ฉบับนี้` flow.
 
 ## OCR reader controls
 
