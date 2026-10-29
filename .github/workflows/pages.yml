@@ -2,6 +2,11 @@ name: Sync real data and deploy Pages
 on:
   push:
     branches: [main]
+  # Validate tests and the browser suite before a change lands on main; only
+  # the deploy job stays main-only (the github-pages environment restricts
+  # deployments to main anyway).
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       data_month:
@@ -28,11 +33,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Install browser for readability checks
-        if: github.event_name != 'push'
+      - name: Install browser for end-to-end checks
         run: npx playwright install --with-deps chromium
-      - name: Check desktop and mobile readability
-        if: github.event_name != 'push'
+      # Runs on every trigger, pushes included: skipping it on push let two UI
+      # regressions reach main and surface only in the next nightly run.
+      - name: Run Playwright end-to-end checks
         run: npm run test:readability
       - uses: actions/cache/restore@v4
         with:
@@ -72,6 +77,7 @@ jobs:
         with:
           path: dist
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:

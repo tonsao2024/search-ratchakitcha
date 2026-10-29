@@ -7,7 +7,7 @@ import {
   AlertCircle, Library,
 } from 'lucide-react';
 import { fetchMonth } from './dataset';
-import { loadPublishedData } from './static-data';
+import { loadPublishedData, yearsAfterLoad } from './static-data';
 import Pagination from './Pagination';
 import OcrReader from './OcrReader';
 import FilterPanel from './FilterPanel';
@@ -145,8 +145,10 @@ function App() {
         } else {
           // Keep the year/month controls on what was actually loaded: the default
           // ten-year window may include years upstream has not published yet.
+          // An explicit "ทุกปี" choice is preserved as-is so the picker keeps
+          // reading ทุกปี rather than listing every year it happened to load.
           if (useAll && !range) {
-            setSelectedYears([...data.selectedYears].reverse());
+            setSelectedYears(yearsAfterLoad(data));
             setAllMonths(true);
             const lastLoaded = data.loadedMonths?.at(-1);
             if (lastLoaded) setMonth(lastLoaded);

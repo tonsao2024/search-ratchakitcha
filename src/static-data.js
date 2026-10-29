@@ -38,6 +38,16 @@ export function selectMonths(manifest, month, { all = false, year = month.slice(
   return selected;
 }
 
+// What the year control should read after a load finishes.
+// An explicit "every year" request (years === null) must stay ทุกปี in the
+// picker, so it keeps meaning "whatever upstream publishes next" instead of
+// freezing to the years that happened to exist today. A narrowed request —
+// e.g. the default ten-year window clamped to the years upstream has actually
+// published — mirrors the years that were really loaded.
+export function yearsAfterLoad({ allYears, selectedYears }) {
+  return allYears ? null : [...selectedYears].reverse();
+}
+
 export async function loadPublishedData(base, month, { all = false, year = month.slice(0, 4), years, range, onProgress, fetcher = fetch, fallbackToLatest = false, clampUnknownYears = false } = {}) {
   const options = { cache: 'no-store', signal: AbortSignal.timeout(180000) };
   const manifestResponse = await fetcher(`${base}data/manifest.json`, options);
