@@ -16,6 +16,7 @@ npm start      # production :3001 ให้บริการ UI และ API
 - `/api/search?month=2026-09` คืนข้อมูลจริงที่แคชไว้ ถ้าไม่มีจะดาวน์โหลด `meta/2026/2026-09.jsonl` จาก Hugging Face โดยตรง ไม่พึ่ง search index สำหรับการแสดงรายการ
 - `&refresh=1` ดาวน์โหลดไฟล์เดือนนั้นใหม่ อ่านครบทุกบรรทัด ตัดรายการ `is_test` และคัดหมวด (แต่งตั้ง / พ้นจากตำแหน่ง / ป.ป.ช.) จากชื่อประกาศ ก่อนเก็บแคช `.cache/YYYY-MM.json` แบบ atomic
 - ถ้า API เชื่อมต่อ upstream ไม่ได้ เบราว์เซอร์จะลองดาวน์โหลดไฟล์สาธารณะเดียวกันโดยตรง (ขึ้นกับเครือข่าย/CORS ของต้นทาง)
+- เช้าของเดือนใหม่ ต้นทางมักยังไม่มีไฟล์ `meta/<ปี>/<เดือน>.jsonl` ของเดือนนั้น: การซิงก์จะไม่ล้มเหลวทั้งรอบ แต่เผยแพร่ถึงเดือนล่าสุดที่มีไฟล์จริง บันทึก `pendingMonth` ไว้ใน manifest และ UI แจ้งว่า “ต้นทางยังไม่เผยแพร่เดือน …” (ดูหัวข้อ “The newest month can be pending”) — ถ้าขาดเดือนติดต่อกันสองเดือนหรือขาดเดือนกลางปี จะยังนับว่าล้มเหลวและงดเผยแพร่ตามเดิม
 - เซิร์ฟเวอร์ลองซิงก์เดือนปัจจุบันทุก 24 ชั่วโมง **เฉพาะขณะที่ process เปิดทำงาน** ไม่ใช่ managed cron service
 - วันที่/เดือนในช่องเลือกใช้ ค.ศ. รายการแสดงวันที่ พ.ศ.
 
@@ -96,11 +97,24 @@ The Pages build uses **static JSON generated from the actual Hugging Face datase
 
 Generated data lives in Actions/Pages artifacts, not Git. A metadata fetch failure, a missing current-year month, a truncated file, a row-count mismatch, or unavailable current-month OCR prevents publication; the previously deployed site stays intact and the UI marks it stale. Older-year OCR is intentionally not imported, and partial OCR coverage is reported rather than fabricated. The refresh button reloads the latest published dataset, **not** a new Actions run.
 
+### The newest month can be pending (fix for run 41264058128)
+
+The nightly sync failed on **1 November 2026** with `Upstream is missing current-year metadata months: 2026-11`, and it would have failed on the first of every month afterwards. The cause is a race, not a broken import: upstream creates `meta/<year>/<month>.jsonl` only once that month has documents, and its daily push lands around 21:10 Bangkok while the scheduled run fires in the same city's early morning. On the first days of a month the new file therefore does not exist yet.
+
+The importer now separates **“not published yet”** from **“import failed”** (`resolveReferenceMonth` in `src/sync-integrity.js`):
+
+- the newest requested month may be absent — the run publishes through the previous month, records `pendingMonth` in `manifest.json`, emits a `::warning::` annotation, and says so in the run summary and in the site’s data-status popover;
+- two consecutive missing months, or any gap earlier in the published year, is still a hard failure, so an upstream outage longer than a month cannot be mistaken for a quiet month;
+- an explicit `data_month` dispatch input is a pin: requesting a month that does not exist fails instead of silently returning an older one;
+- `npm run verify:data` resolves the same way from the manifest it is checking, so a run that crossed midnight between the two steps still agrees with itself.
+
+`tests/sync-month-boundary.test.js` drives the real scripts against a fake upstream that is one month behind, and `tests/verify-data.test.js` covers the gate, so the rule cannot silently regress again.
+
 ### Current-month coverage and completeness checks (fix)
 
 The previous deployment stopped at `2026-09` because its workflow was pinned to an expired session branch and the daily schedule only runs from the default branch. The current workflow checks out the triggering ref, runs on pushes to `main`, manual dispatch and the daily schedule, with an optional `data_month` override. Before publishing, `npm run verify:data` checks:
 
-- the manifest revision, `currentMonth`, and all months from January through the required month of the current year;
+- the manifest revision, `currentMonth`, and all months from January through the newest month upstream has actually published (a pending newest month must be declared in `pendingMonth`);
 - each monthly file's raw byte length and JSONL line count against the upstream tree entry (LFS sizes included), plus row, OCR, duplicate-ID and revision consistency;
 - current-month OCR availability when upstream publishes that OCR month;
 - every annual bundle's row and scanned totals against its monthly files;

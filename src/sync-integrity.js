@@ -13,6 +13,35 @@ export function requiredMonths(reference = new Date()) {
   return Array.from({ length: month }, (_, index) => `${year}-${String(index + 1).padStart(2, '0')}`);
 }
 
+// Month arithmetic on YYYY-MM keys only (never Date-local days, which shift
+// results across a month boundary for timezones east of UTC).
+export function shiftMonth(reference, delta = 0) {
+  const current = monthKey(reference);
+  const index = Number(current.slice(0, 4)) * 12 + Number(current.slice(5, 7)) - 1 + delta;
+  const year = Math.floor(index / 12);
+  const month = ((index % 12) + 12) % 12;
+  return `${String(year).padStart(4, '0')}-${String(month + 1).padStart(2, '0')}`;
+}
+
+// Upstream only creates a month's metadata file once that month has documents,
+// and the nightly sync runs at the start of the Bangkok morning — before the
+// upstream daily push. So on the first days of every month the newest month
+// legitimately does not exist yet (run 41264058128 failed exactly there).
+// Treat "the newest requested month is absent" as pending and publish through
+// the previous month; a gap anywhere earlier in the year stays a hard error.
+export function resolveReferenceMonth(availableMonths, requested = new Date(), { allowPendingCurrentMonth = true, subject = 'Upstream' } = {}) {
+  const requestedMonth = monthKey(requested);
+  const published = new Set((availableMonths || []).filter(month => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month ?? ''))));
+  if (published.has(requestedMonth)) return { month: requestedMonth, requestedMonth, pendingMonth: null };
+  if (!allowPendingCurrentMonth) throw Error(`${subject} has no metadata file for the requested month ${requestedMonth}`);
+  const previous = shiftMonth(requestedMonth, -1);
+  if (!published.has(previous)) {
+    const newest = published.size ? [...published].sort().at(-1) : null;
+    throw Error(`${subject} is missing both ${requestedMonth} and ${previous}; the newest month available is ${newest || 'none'}`);
+  }
+  return { month: previous, requestedMonth, pendingMonth: requestedMonth };
+}
+
 export function sourceBytes(file) {
   const value = Number(file?.lfs?.size ?? file?.size);
   return Number.isFinite(value) && value >= 0 ? value : null;
@@ -48,6 +77,8 @@ export function assertCompleteSource(buffer, file, label = 'source') {
   return { text, byteLength, lineCount, expectedBytes };
 }
 
+// Every month from January through the resolved reference month must exist; the
+// not-yet-published newest month is handled earlier by resolveReferenceMonth.
 export function assertMonthCoverage(files, reference = new Date()) {
   const byMonth = new Map();
   for (const file of files) {
@@ -84,7 +115,7 @@ export function matchOcrRow(byKey, record) {
   return null;
 }
 
-export function coverageSummary(entries = [], reference = new Date()) {
+export function coverageSummary(entries = [], reference = new Date(), { pendingMonth } = {}) {
   const currentMonth = monthKey(reference);
   const required = requiredMonths(currentMonth);
   const sorted = [...entries].sort((a, b) => String(a.month).localeCompare(String(b.month)));
@@ -92,11 +123,16 @@ export function coverageSummary(entries = [], reference = new Date()) {
   const missingMonths = required.filter(month => !available.has(month));
   const current = available.get(currentMonth);
   const ocrStatus = current?.ocrStatus || 'not-imported';
+  // `pendingMonth` names the newest calendar month upstream has not published
+  // yet, so callers (CI summary, browser UI) can say "not out yet" instead of
+  // "something is broken".
+  const pending = pendingMonth ?? (available.has(currentMonth) ? null : currentMonth);
   return {
     status: missingMonths.length ? 'incomplete' : 'complete',
     currentMonth,
     latestMonth: sorted.at(-1)?.month || null,
     hasCurrentMonth: available.has(currentMonth),
+    pendingMonth: pending,
     requiredMonths: required.length,
     missingMonths,
     publishedMonths: sorted.length,

@@ -342,6 +342,7 @@ function App() {
                 <p>{connection ? new Date(connection).toLocaleString('th-TH') : 'ยังไม่มีเวลา'}</p>
                 {dataInfo && <p>{dataInfo.month} • {rows.length} ประกาศ • OCR {rows.filter(r => r.text).length}</p>}
                 {coverage && <p>ความครบถ้วน: {coverage.status === 'complete' ? `ครบ ${coverage.requiredMonths} เดือน` : `ขาด ${coverage.missingMonths.length} เดือน`} • ล่าสุด {monthTH(coverage.latestMonth)}</p>}
+                {dataInfo?.pendingMonth && <p>ต้นทางยังไม่เผยแพร่เดือน {monthTH(dataInfo.pendingMonth)} — จะเพิ่มข้อมูลให้อัตโนมัติหลังซิงก์รอบถัดไป</p>}
                 <a href={dataInfo?.source || DATASET} target="_blank" rel="noreferrer">ต้นทาง <ExternalLink size={13} /></a>
                 <button className="primary small" disabled={loading} onClick={() => connect(f.q)}><RefreshCw size={14} className={loading ? 'spin' : ''} /> รีเฟรช</button>
               </div>

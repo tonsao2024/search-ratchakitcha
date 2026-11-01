@@ -25,6 +25,15 @@ test('auto-load falls back to the latest published month and reports the fallbac
  const data=await loadPublishedData('/','2026-10',{fallbackToLatest:true,fetcher:async url=>url.endsWith('manifest.json')?new Response(JSON.stringify(stale)):fixture(url)});
  assert.equal(data.fallbackTo,'2026-09');assert.equal(data.month,'2026-09');
  assert.equal(data.coverage.hasCurrentMonth,false);assert.equal(data.coverage.status,'incomplete');
+ // The month nobody has published yet is "pending", not an error.
+ assert.equal(data.pendingMonth,'2026-10');
+});
+test('a manifest published through the newest upstream month carries the pending month to the UI',async()=>{
+ const published={...manifest,currentMonth:'2026-09',latestMonth:'2026-09',pendingMonth:'2026-10',
+  coverage:{status:'complete',currentMonth:'2026-09',latestMonth:'2026-09',pendingMonth:'2026-10',hasCurrentMonth:true,requiredMonths:9,missingMonths:[]}};
+ const data=await loadPublishedData('/','2026-10',{fallbackToLatest:true,fetcher:async url=>url.endsWith('manifest.json')?new Response(JSON.stringify(published)):fixture(url)});
+ assert.equal(data.pendingMonth,'2026-10');
+ assert.equal(data.currentMonth,'2026-09');
 });
 test('default year window loads the published subset without degrading to a single month',async()=>{
  const stale={months:[{month:'2026-08'},{month:'2026-09'}],syncedAt:new Date().toISOString(),revision:'abc',source:'https://huggingface.co',currentMonth:'2026-10',latestMonth:'2026-09'};

@@ -102,7 +102,7 @@ export async function loadPublishedData(base, month, { all = false, year = month
   const syncAge = Date.now() - Date.parse(manifest.syncedAt);
   const coverage = manifest.coverage?.status
     ? manifest.coverage
-    : coverageSummary(manifest.months, manifest.currentMonth || month);
+    : coverageSummary(manifest.months, manifest.currentMonth || month, { pendingMonth: manifest.pendingMonth ?? undefined });
   return {
     rows: [...new Map(batches.flatMap(data => data.rows).map(row => [row.id, row])).values()],
     selectedYears,
@@ -112,6 +112,9 @@ export async function loadPublishedData(base, month, { all = false, year = month
     fallbackTo,
     coverage,
     currentMonth: coverage.currentMonth,
+    // Newest calendar month upstream has not published yet (null when the data
+    // is current) — the UI says "not out yet" instead of implying an error.
+    pendingMonth: coverage.pendingMonth || null,
     latestMonth: manifest.latestMonth || coverage.latestMonth,
     source: manifest.source,
     complete: true,
