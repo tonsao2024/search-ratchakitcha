@@ -14,6 +14,7 @@ import {
   coverageSummary,
   documentKeys,
   matchOcrRow,
+  resolveReferenceMonth,
   retryDelayMs,
 } from '../src/sync-integrity.js';
 
@@ -26,7 +27,11 @@ process.on('unhandledRejection', error => {
   process.exit(1);
 });
 
-const repo = 'open-law-data-thailand/soc-ratchakitcha';
+// Upstream endpoints. Overridable so the importer can be exercised against a
+// local fake upstream in tests; production CI uses the defaults.
+const apiBase = (process.env.HF_API_BASE || 'https://huggingface.co').replace(/\/+$/, '');
+const repo = process.env.HF_REPO || 'open-law-data-thailand/soc-ratchakitcha';
+const datasetBase = process.env.HF_DATASET_BASE || `${apiBase}/datasets/${repo}`;
 const localOcrDir = process.env.LOCAL_OCR_DIR || '.local-ocr';
 
 // Local text extracted by scripts/ocr-pipeline.mjs for documents that upstream
@@ -41,11 +46,8 @@ async function loadLocalOcr(month) {
   }
 }
 
-const referenceMonth = process.env.DATA_MONTH && /^\d{4}-(0[1-9]|1[0-2])$/.test(process.env.DATA_MONTH)
-  ? process.env.DATA_MONTH
-  : monthKey(new Date());
-const currentYear = Number(referenceMonth.slice(0, 4));
-const ocrYears = [currentYear - 1, currentYear];
+const pinnedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(process.env.DATA_MONTH || '');
+const requestedMonth = pinnedMonth ? process.env.DATA_MONTH : monthKey(new Date());
 const maxAttempts = Math.max(1, Number(process.env.HF_MAX_ATTEMPTS || 8));
 const requestIntervalMs = Math.max(0, Number(process.env.HF_REQUEST_INTERVAL_MS || 200));
 const requestConcurrency = Math.max(1, Number(process.env.HF_CONCURRENCY || 3));
@@ -106,12 +108,12 @@ async function fetchSource(url, file, label) {
   return assertCompleteSource(buffer, file, label);
 }
 
-const info = await get(`https://huggingface.co/api/datasets/${repo}`).then(response => response.json());
+const info = await get(`${apiBase}/api/datasets/${repo}`).then(response => response.json());
 const revision = process.env.DATASET_REVISION || info.sha;
 if (!revision) throw Error('Dataset revision missing');
 
 async function tree(path) {
-  let url = `https://huggingface.co/api/datasets/${repo}/tree/${revision}/${path}?limit=1000`;
+  let url = `${apiBase}/api/datasets/${repo}/tree/${revision}/${path}?limit=1000`;
   const items = [];
   while (url) {
     const response = await get(url);
@@ -131,7 +133,25 @@ const files = (await pool(years, async year => (await tree(`meta/${year}`)).filt
   file.type === 'file' && /^meta\/\d{4}\/\d{4}-(0[1-9]|1[0-2])\.jsonl$/.test(file.path)
 ))).flat();
 if (!files.length) throw Error('No metadata files');
-// Every month from January through the required month must exist upstream. Empty files are valid.
+
+// Upstream creates a month's metadata file only once that month has documents,
+// and this job runs before the upstream daily push, so the newest calendar
+// month is legitimately absent for the first days of every month. Publish up to
+// the newest month that really exists instead of failing the deploy; a gap in
+// any earlier month still stops the run (see assertMonthCoverage below).
+const publishedMonths = files.map(file => {
+  const match = file.path.match(/^meta\/(\d{4})\/(\1-(?:0[1-9]|1[0-2]))\.jsonl$/);
+  return match ? match[2] : null;
+}).filter(Boolean);
+const { month: referenceMonth, pendingMonth } = resolveReferenceMonth(publishedMonths, requestedMonth, {
+  allowPendingCurrentMonth: !pinnedMonth,
+});
+const currentYear = Number(referenceMonth.slice(0, 4));
+const ocrYears = [currentYear - 1, currentYear];
+if (pendingMonth) {
+  console.log(`::warning title=Newest month not published yet::${pendingMonth} has no upstream metadata file yet; publishing through ${referenceMonth} instead. Re-run this workflow after the upstream dataset sync for that month lands.`);
+}
+// Empty files are valid, so the whole published prefix must be listed upstream.
 assertMonthCoverage(files, referenceMonth);
 
 // Full historical metadata; import OCR for the current and previous year to bound Pages size.
@@ -152,6 +172,10 @@ const manifest = {
   license: 'CC-BY-4.0',
   year: String(currentYear),
   currentMonth: referenceMonth,
+  // The month the run asked for and the newest month upstream has not published
+  // yet, so the verifier and the UI can tell "not out yet" from "import broken".
+  requestedMonth,
+  pendingMonth,
   years: [],
   months: [],
   syncedAt: null,
@@ -176,7 +200,7 @@ async function importOcr(ocrFile, rows, month) {
   let error = null;
 
   try {
-    const url = `${DATASET}/resolve/${revision}/${ocrFile.path}`;
+    const url = `${datasetBase}/resolve/${revision}/${ocrFile.path}`;
     const response = await get(url);
     if (!response.body) throw Error('OCR response has no body');
     const contentLength = Number(response.headers.get('content-length'));
@@ -242,7 +266,7 @@ async function importOcr(ocrFile, rows, month) {
 
 const entries = await pool(files, async file => {
   const month = file.path.match(/(\d{4}-\d{2})\.jsonl$/)[1];
-  const source = `${DATASET}/resolve/${revision}/${file.path}`;
+  const source = `${datasetBase}/resolve/${revision}/${file.path}`;
   const ocrFile = ocrFiles.get(month);
   const expectedBytes = sourceBytes(file);
   // v6: classification now imports removal notices, so earlier caches must be rebuilt.
@@ -342,7 +366,7 @@ manifest.ocrCount = entries.reduce((sum, month) => sum + month.ocrCount, 0);
 manifest.localOcrCount = entries.reduce((sum, month) => sum + (month.localOcrCount || 0), 0);
 manifest.metadataBytes = entries.reduce((sum, month) => sum + (month.byteLength || 0), 0);
 manifest.metadataLines = entries.reduce((sum, month) => sum + (month.lineCount || 0), 0);
-manifest.coverage = coverageSummary(entries, referenceMonth);
+manifest.coverage = coverageSummary(entries, referenceMonth, { pendingMonth });
 manifest.latestMonth = manifest.coverage.latestMonth;
 manifest.complete = manifest.coverage.status === 'complete';
 
@@ -380,7 +404,7 @@ await writeFile(manifestTemp, JSON.stringify(manifest, null, 2));
 await rename(manifestTemp, 'public/data/manifest.json');
 await writeFile('public/.nojekyll', '');
 const current = manifest.coverage;
-const summary = `${manifest.total} announcements (${manifest.appointments} appointments, ${manifest.removals} removals); ${manifest.nacc} NACC; ${manifest.ocrCount} OCR texts (${manifest.localOcrCount} from the local pipeline); ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; ${requiredMonths(referenceMonth).length} current-year months verified; ${current.currentMonthCount} records in ${referenceMonth}; OCR ${current.ocrStatus}; revision ${revision}`;
+const summary = `${manifest.total} announcements (${manifest.appointments} appointments, ${manifest.removals} removals); ${manifest.nacc} NACC; ${manifest.ocrCount} OCR texts (${manifest.localOcrCount} from the local pipeline); ${years[0]}–${years.at(-1)}; ${entries.length} months; ${manifest.skippedIncomplete} incomplete records skipped; ${requiredMonths(referenceMonth).length} current-year months verified; ${current.currentMonthCount} records in ${referenceMonth}; OCR ${current.ocrStatus}${pendingMonth ? `; ${pendingMonth} not published upstream yet, publishing through ${referenceMonth}` : ''}; revision ${revision}`;
 console.log(`::notice title=Verified real dataset::${summary}`);
 if (process.env.GITHUB_STEP_SUMMARY) {
   await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Actual historical dataset\n${summary}\n\nMetadata bytes/lines are checked against the pinned upstream tree. Upstream OCR imported for ${ocrYears.join('–')}; the local pipeline (scripts/ocr-pipeline.mjs) adds text for documents it covers. Older metadata remains title-searchable.\n`);

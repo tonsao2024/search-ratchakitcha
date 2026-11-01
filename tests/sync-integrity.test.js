@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   monthKey,
   requiredMonths,
+  shiftMonth,
+  resolveReferenceMonth,
   sourceBytes,
   assertCompleteSource,
   assertMonthCoverage,
@@ -19,6 +21,44 @@ test('required months include every month from January through the current month
   assert.equal(monthKey('2026-01'), '2026-01');
   assert.deepEqual(requiredMonths('2026-03'), ['2026-01', '2026-02', '2026-03']);
   assert.deepEqual(requiredMonths('2026-01'), ['2026-01']);
+});
+
+test('month arithmetic crosses the year boundary in both directions', () => {
+  assert.equal(shiftMonth('2026-11', -1), '2026-10');
+  assert.equal(shiftMonth('2027-01', -1), '2026-12');
+  assert.equal(shiftMonth('2026-12', 1), '2027-01');
+  assert.equal(shiftMonth('2026-02', 10), '2026-12');
+  assert.equal(shiftMonth(new Date('2026-10-26T10:00:00Z'), 0), '2026-10');
+});
+
+// Run 41264058128 failed here: on the first of the month upstream has not
+// created the new month file yet, and the nightly sync runs before it lands.
+test('a month upstream has not published yet is pending, not a failed import', () => {
+  const published = requiredMonths('2026-10');
+  const resolved = resolveReferenceMonth(published, '2026-11');
+  assert.deepEqual(resolved, { month: '2026-10', requestedMonth: '2026-11', pendingMonth: '2026-11' });
+  // The import then validates the whole published prefix strictly.
+  assert.deepEqual(assertMonthCoverage(published.map(month => ({ path: `meta/2026/${month}.jsonl`, type: 'file' })), resolved.month).missing, []);
+  // The same tolerance applies at the new year: publish through December.
+  assert.deepEqual(
+    resolveReferenceMonth(requiredMonths('2026-12'), '2027-01'),
+    { month: '2026-12', requestedMonth: '2027-01', pendingMonth: '2027-01' }
+  );
+});
+
+test('a missing month is only tolerated once and never for an explicit pin', () => {
+  // Two consecutive months missing means upstream stopped, not a new month.
+  assert.throws(() => resolveReferenceMonth(requiredMonths('2026-09'), '2026-11'), /missing both 2026-11 and 2026-10/);
+  // A gap earlier in the published year is not "pending": the strict coverage
+  // check that runs after resolution still has to reject it.
+  const withOctoberGap = requiredMonths('2026-09').map(month => ({ path: `meta/2026/${month}.jsonl`, type: 'file' }));
+  assert.throws(() => assertMonthCoverage(withOctoberGap, '2026-10'), /2026-10/);
+  assert.throws(
+    () => resolveReferenceMonth(requiredMonths('2026-10'), '2026-11', { allowPendingCurrentMonth: false, subject: 'The published manifest' }),
+    /The published manifest has no metadata file for the requested month 2026-11/
+  );
+  // A requested month that exists never reports a pending month.
+  assert.deepEqual(resolveReferenceMonth(requiredMonths('2026-11'), '2026-11').pendingMonth, null);
 });
 
 test('rate-limit backoff honours Retry-After seconds and HTTP dates', () => {
@@ -83,4 +123,17 @@ test('coverage reports current-month presence, gaps and OCR status without inven
   assert.deepEqual(incomplete.missingMonths, ['2026-10']);
   const brokenOcr = coverageSummary(entries.map(entry => entry.month === '2026-10' ? { ...entry, ocrStatus: 'unavailable' } : entry), '2026-10');
   assert.equal(brokenOcr.ocrComplete, false);
+});
+
+test('coverage names the unpublished month so the UI can say "not out yet"', () => {
+  const publishedThrough = m => requiredMonths(m).map(month => ({ month, count: 2, byteLength: 100, lineCount: 4, ocrCount: 2, ocrStatus: 'available' }));
+  // October data, run on 1 November: complete through the newest published month.
+  const pending = coverageSummary(publishedThrough('2026-10'), '2026-10', { pendingMonth: '2026-11' });
+  assert.equal(pending.status, 'complete');
+  assert.equal(pending.pendingMonth, '2026-11');
+  assert.equal(pending.currentMonth, '2026-10');
+  // Upstream already has November: nothing is pending.
+  assert.equal(coverageSummary(publishedThrough('2026-11'), '2026-11').pendingMonth, null);
+  // An older manifest with no coverage object still reports the missing month.
+  assert.equal(coverageSummary(publishedThrough('2026-09'), '2026-10').pendingMonth, '2026-10');
 });
